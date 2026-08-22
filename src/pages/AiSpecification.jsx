@@ -1,260 +1,202 @@
 import React, { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { quizService } from "../services/quizService";
 import Navbar from "../components/Navbar";
-import "../styles/terminal.css";
-
-const ASCII_BANNER = `
- ██████╗ ██╗   ██╗███████╗███████╗████████╗   █████╗ ██╗
-██╔═══██╗██║   ██║██╔════╝██╔════╝╚══██╔══╝  ██╔══██╗██║
-██║   ██║██║   ██║█████╗  ███████╗   ██║     ███████║██║
-██║▄▄ ██║██║   ██║██╔══╝  ╚════██║   ██║     ██╔══██║██║
-╚██████╔╝╚██████╔╝███████╗███████║   ██║     ██║  ██║██║
- ╚══▀▀═╝  ╚═════╝ ╚══════╝╚══════╝   ██║     ╚═╝  ╚═╝╚═╝
-`;
 
 export default function AiSpecification() {
   const { quizId } = useParams();
-  const { quizzes, addQuiz } = useAuth();
   const navigate = useNavigate();
 
   const [logs, setLogs] = useState([
-    { type: "system", text: "Initializing QUEST AI specification engine..." },
-    { type: "system", text: "Loading prompt synthesis modules..." },
-    { type: "progress", text: "[██████████████████████████████] done" },
-    { type: "system", text: "Resolving taxonomies & rubrics ... ok" },
-    { type: "ready", text: "✦ quest.ai v2.4 — ready. Enter a topic prompt or /help command." }
+    { type: "system", text: "QUEST AI Specification Engine initialized." },
+    { type: "system", text: "Connected to Django backend FBV engine." },
+    { type: "system", text: "Click 'Generate AI Specification' or enter prompt to synthesize JSON schema from backend." }
   ]);
-
   const [input, setInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [difficulty, setDifficulty] = useState("Medium");
+  const [generatedSpec, setGeneratedSpec] = useState(null);
+  const [copiedToast, setCopiedToast] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleCommandSubmit = (e) => {
-    e.preventDefault();
-    if (!input.trim() || isGenerating) return;
+  const handleGenerateSpecification = async (customPrompt = "") => {
+    if (!quizId) {
+      setError("No active quiz ID provided. Please create a quiz assessment first.");
+      return;
+    }
 
-    const cmd = input.trim();
+    setError("");
+    setIsGenerating(true);
+
+    const promptText = customPrompt || input.trim() || "Default assessment specification";
     setInput("");
-
-    // Command handling
-    if (cmd === "/clear") {
-      setLogs([]);
-      return;
-    }
-
-    if (cmd === "/help") {
-      setLogs((prev) => [
-        ...prev,
-        { type: "prompt", text: `> /help` },
-        { type: "system", text: "Available QUEST CLI Commands:" },
-        { type: "output", text: "  /generate <topic>       - Synthesize quiz assessment from topic" },
-        { type: "output", text: "  /difficulty <level>     - Set difficulty (easy | medium | tough)" },
-        { type: "output", text: "  /clear                  - Clear terminal screen" },
-        { type: "output", text: "  /help                   - Show command documentation" },
-        { type: "output", text: "  Or directly type any topic name e.g. 'Operating Systems Caching'" }
-      ]);
-      return;
-    }
-
-    if (cmd.startsWith("/difficulty")) {
-      const level = cmd.split(" ")[1];
-      if (["easy", "medium", "tough"].includes(level?.toLowerCase())) {
-        const formatted = level.charAt(0).toUpperCase() + level.slice(1).toLowerCase();
-        setDifficulty(formatted);
-        setLogs((prev) => [
-          ...prev,
-          { type: "prompt", text: `> ${cmd}` },
-          { type: "success", text: `✔ Difficulty updated to [${formatted}]` }
-        ]);
-      } else {
-        setLogs((prev) => [
-          ...prev,
-          { type: "prompt", text: `> ${cmd}` },
-          { type: "error", text: "Error: Difficulty must be 'easy', 'medium', or 'tough'" }
-        ]);
-      }
-      return;
-    }
-
-    // Direct topic or /generate execution
-    const topicPrompt = cmd.startsWith("/generate") ? cmd.replace("/generate", "").trim() : cmd;
-    if (!topicPrompt) return;
 
     setLogs((prev) => [
       ...prev,
-      { type: "prompt", text: `> quest-ai generate --spec "${topicPrompt}" --difficulty ${difficulty}` },
-      { type: "system", text: "Analyzing domain concepts & synthesizing rubrics..." }
+      { type: "prompt", text: `$ quest-ai generate --quiz-id ${quizId} --spec "${promptText}"` },
+      { type: "system", text: "Transmitting specification payload to Django backend..." }
     ]);
 
-    setIsGenerating(true);
+    try {
+      const res = await quizService.generateAISpecification(quizId, {
+        prompt: promptText
+      });
 
-    setTimeout(() => {
-      const generatedQuestions = [
-        {
-          id: "ai-1",
-          question: `In context of ${topicPrompt}: What is the primary bottleneck in large scale architecture?`,
-          options: ["Network IO & Serialization", "L1 CPU Cache Hit", "RAM Allocation", "Registers"],
-          correctIndex: 0,
-          explanation: "Network IO and data serialization typically dominate distributed request latency overhead."
-        },
-        {
-          id: "ai-2",
-          question: `Which architectural pattern guarantees eventual consistency for ${topicPrompt}?`,
-          options: ["Saga Pattern", "Strict Two-Phase Commit", "Monolithic Lock", "Synchronous RPC"],
-          correctIndex: 0,
-          explanation: "The Saga pattern uses compensating transactions to maintain consistency across asynchronous microservices."
-        },
-        {
-          id: "ai-3",
-          question: "Which operational metric best measures cache effectiveness?",
-          options: ["Hit Ratio", "Page Fault Rate", "Disk Utilization", "Core Temperature"],
-          correctIndex: 0,
-          explanation: "Hit ratio measures the proportion of incoming read requests served directly from memory cache."
-        }
-      ];
-
-      const quizCode = "AI" + Math.floor(1000 + Math.random() * 9000);
-      const generatedQuiz = {
-        id: "q-ai-" + Date.now(),
-        code: quizCode,
-        title: topicPrompt.length > 40 ? topicPrompt.slice(0, 40) + "..." : topicPrompt,
-        description: `Auto-generated assessment via AI Terminal for prompt: "${topicPrompt}"`,
-        difficulty: difficulty,
-        timeLimit: 15,
-        createdDate: new Date().toISOString().split("T")[0],
-        assigned: true,
-        questionsCount: generatedQuestions.length,
-        questions: generatedQuestions
-      };
-
-      addQuiz(generatedQuiz);
-      setIsGenerating(false);
+      const specData = res?.specification || res?.data || res?.spec || res;
+      const specString = typeof specData === "object" ? JSON.stringify(specData, null, 2) : String(specData);
+      setGeneratedSpec(specString);
 
       setLogs((prev) => [
         ...prev,
-        { type: "success", text: `✔ Assessment generated successfully! Reference Code: ${generatedQuiz.code}` },
-        { type: "system", text: "Redirecting to Quiz Generated Page in 1.5 seconds..." }
+        { type: "success", text: "✔ Django backend synthesized AI specification JSON successfully." },
+        { type: "system", text: "--- BEGIN AI SPECIFICATION PAYLOAD ---" },
+        { type: "output", text: specString },
+        { type: "system", text: "--- END AI SPECIFICATION PAYLOAD ---" }
       ]);
+    } catch (err) {
+      console.error("[AiSpecification] Generation error:", err);
+      const errMsg = err.message || "Failed to generate AI specification from backend.";
+      setError(errMsg);
+      setLogs((prev) => [
+        ...prev,
+        { type: "error", text: `✖ Error: ${errMsg}` }
+      ]);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
-      setTimeout(() => {
-        navigate(`/staff/quiz/${generatedQuiz.id}/preview`);
-      }, 1500);
-    }, 1200);
+  const handleCopySpec = () => {
+    if (!generatedSpec) return;
+    navigator.clipboard.writeText(generatedSpec);
+    setCopiedToast(true);
+    setTimeout(() => setCopiedToast(false), 2000);
   };
 
   return (
     <div className="app-shell">
       <Navbar />
       <main className="app-content container">
-        <div className="terminal-page-container">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => navigate("/staff/dashboard")}
-            style={{ marginBottom: "16px" }}
           >
             ← Back to Staff Dashboard
           </button>
+          {quizId && (
+            <span className="badge badge-accent" style={{ fontFamily: "var(--font-mono)" }}>
+              Assessment ID: #{quizId}
+            </span>
+          )}
+        </div>
 
-          {/* Terminal Window Frame */}
-          <div className="terminal-window">
-            {/* macOS Window Title Bar */}
-            <div className="terminal-header">
-              <div className="terminal-dots">
-                <span className="terminal-dot dot-red" />
-                <span className="terminal-dot dot-yellow" />
-                <span className="terminal-dot dot-green" />
-              </div>
-              <span className="terminal-title">teacher@quest ~ /specification-terminal</span>
-              <div />
+        <div style={{ marginBottom: "20px" }}>
+          <h1 style={{ fontSize: "28px" }}>AI Terminal Specification Engine</h1>
+          <p style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>
+            Generates backend-aligned JSON specifications for external AI models or automated imports.
+          </p>
+        </div>
+
+        {error && <div className="form-error" style={{ marginBottom: "16px" }}>{error}</div>}
+
+        {/* Action Controls */}
+        <div className="card" style={{ padding: "16px 20px", marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => handleGenerateSpecification()}
+              disabled={isGenerating || !quizId}
+            >
+              {isGenerating ? "Synthesizing..." : "⚡ Generate AI Specification"}
+            </button>
+            {generatedSpec && (
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={handleCopySpec}
+              >
+                {copiedToast ? "✓ Copied JSON!" : "📋 Copy JSON Specification"}
+              </button>
+            )}
+            {quizId && (
+              <Link to={`/staff/quiz/${quizId}/import`} className="btn btn-secondary btn-sm">
+                📥 Import External AI JSON →
+              </Link>
+            )}
+          </div>
+
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              disabled
+              title="Built-in Claude API endpoint is pending on Django backend. Use External AI workflow."
+              style={{ opacity: 0.6, cursor: "not-allowed", border: "1px dashed var(--color-border)" }}
+            >
+              🤖 Run with Claude (Direct API Unavailable)
+            </button>
+          </div>
+        </div>
+
+        {/* Terminal Window */}
+        <div className="terminal-window">
+          <div className="terminal-header">
+            <div className="terminal-dots">
+              <span className="terminal-dot dot-red" />
+              <span className="terminal-dot dot-yellow" />
+              <span className="terminal-dot dot-green" />
             </div>
+            <span className="terminal-title">quest-ai-cli ~ FBV Backend Session</span>
+            <div style={{ width: 40 }} />
+          </div>
 
-            {/* Terminal Body */}
-            <div className="terminal-body">
-              {/* Top ASCII Banner Header */}
-              <div className="terminal-ascii-banner">{ASCII_BANNER}</div>
-
-              {/* Side-by-Side Capabilities & Commands Grid (Reference Image 2) */}
-              <div className="terminal-grid">
-                <div className="terminal-grid-card">
-                  <div className="terminal-grid-title">System Capabilities</div>
-                  <div className="terminal-row">
-                    <span className="terminal-label">Engine:</span>
-                    <span className="terminal-val">QUEST AI Specification Kernel v2.4</span>
-                  </div>
-                  <div className="terminal-row">
-                    <span className="terminal-label">Difficulty:</span>
-                    <span className="terminal-val" style={{ color: "#FAB387" }}>{difficulty}</span>
-                  </div>
-                  <div className="terminal-row">
-                    <span className="terminal-label">Status:</span>
-                    <span className="terminal-val" style={{ color: "#A6E3A1" }}>Operational</span>
-                  </div>
-                </div>
-
-                <div className="terminal-grid-card">
-                  <div className="terminal-grid-title">Quick CLI Navigation</div>
-                  <div className="terminal-row">
-                    <span className="terminal-cmd-highlight" onClick={() => setInput("/generate React Hooks")}>
-                      /generate &lt;topic&gt;
-                    </span>
-                    <span className="terminal-label">Synthesize quiz</span>
-                  </div>
-                  <div className="terminal-row">
-                    <span className="terminal-cmd-highlight" onClick={() => setInput("/difficulty tough")}>
-                      /difficulty &lt;level&gt;
-                    </span>
-                    <span className="terminal-label">Set easy/medium/tough</span>
-                  </div>
-                  <div className="terminal-row">
-                    <span className="terminal-cmd-highlight" onClick={() => setInput("/help")}>
-                      /help
-                    </span>
-                    <span className="terminal-label">Show docs</span>
-                  </div>
-                </div>
+          <div className="terminal-body" style={{ maxHeight: "450px", overflowY: "auto" }}>
+            {logs.map((log, i) => (
+              <div key={i} className="terminal-line">
+                {log.type === "prompt" && <span className="terminal-prompt">&gt;</span>}
+                <span
+                  className={
+                    log.type === "prompt"
+                      ? "terminal-output"
+                      : log.type === "success"
+                      ? "terminal-success"
+                      : log.type === "error"
+                      ? "badge-danger"
+                      : "terminal-system"
+                  }
+                  style={log.type === "output" ? { fontFamily: "var(--font-mono)", fontSize: "12px", whiteSpace: "pre-wrap", display: "block", color: "var(--color-accent)", margin: "8px 0" } : {}}
+                >
+                  {log.text}
+                </span>
               </div>
+            ))}
+          </div>
 
-              {/* Console Logs */}
-              {logs.map((log, i) => (
-                <div key={i} className="terminal-line">
-                  {log.type === "prompt" && <span className="terminal-prompt">&gt;</span>}
-                  <span
-                    className={
-                      log.type === "prompt"
-                        ? "terminal-output"
-                        : log.type === "success"
-                        ? "terminal-success"
-                        : log.type === "ready"
-                        ? "terminal-ready"
-                        : log.type === "progress"
-                        ? "terminal-progress-track"
-                        : "terminal-system"
-                    }
-                  >
-                    {log.text}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Bottom Command Prompt Bar */}
-            <form onSubmit={handleCommandSubmit} className="terminal-input-bar">
-              <span className="terminal-input-prompt-symbol">&gt;</span>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (input.trim()) handleGenerateSpecification(input.trim());
+            }}
+            style={{ padding: "12px 16px", background: "#0E1216", borderTop: "1px solid var(--color-border)" }}
+          >
+            <div className="terminal-input-row">
+              <span className="terminal-prompt">$</span>
               <input
-                className="terminal-input-field"
+                className="terminal-input"
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder='Type a command ... try "/generate React State" or "/help"'
-                disabled={isGenerating}
+                placeholder="Enter prompt e.g. 'Generate 5 questions on Distributed Systems'..."
+                disabled={isGenerating || !quizId}
                 autoFocus
               />
-              <button type="submit" className="btn btn-primary btn-sm" disabled={isGenerating}>
-                {isGenerating ? "Synthesizing..." : "Execute →"}
+              <button
+                type="submit"
+                className="btn btn-primary btn-sm"
+                disabled={isGenerating || !quizId}
+              >
+                {isGenerating ? "Executing..." : "Execute →"}
               </button>
-            </form>
-          </div>
+            </div>
+          </form>
         </div>
       </main>
     </div>

@@ -1,15 +1,44 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { quizService } from "../services/quizService";
 import Navbar from "../components/Navbar";
 
 export default function QuizResults() {
   const { quizId } = useParams();
-  const { quizzes, attempts } = useAuth();
   const navigate = useNavigate();
 
-  const quiz = quizzes.find((q) => q.id === quizId) || quizzes[0];
-  const quizAttempts = attempts.filter((a) => a.quizId === quiz?.id);
+  const [resultsData, setResultsData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const fetchResults = async () => {
+    if (!quizId) return;
+    try {
+      setLoading(true);
+      setError("");
+      const res = await quizService.getResults(quizId);
+      setResultsData(res);
+    } catch (err) {
+      console.error("[QuizResults] Error fetching results:", err);
+      setError(err.message || "Failed to load quiz scorecards.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchResults();
+  }, [quizId]);
+
+  const quizTitle = resultsData?.quiz_title || resultsData?.title || `Quiz Assessment #${quizId}`;
+  const quizCode = resultsData?.quiz_code || resultsData?.code || "";
+  const attempts = resultsData?.results || resultsData?.attempts || resultsData?.submissions || (Array.isArray(resultsData) ? resultsData : []);
+  const totalSubmissions = attempts.length;
+  const avgScore = totalSubmissions
+    ? Math.round(
+        attempts.reduce((acc, curr) => acc + (curr.score ?? curr.percentage ?? 0), 0) / totalSubmissions
+      )
+    : 0;
 
   return (
     <div className="app-shell">
@@ -24,65 +53,99 @@ export default function QuizResults() {
         </button>
 
         <div style={{ marginBottom: "24px" }}>
-          <span className="badge badge-accent" style={{ marginBottom: "8px" }}>CODE: {quiz?.code}</span>
-          <h1 style={{ fontSize: "28px" }}>Results & Submissions: {quiz?.title}</h1>
-        </div>
-
-        <div className="stat-grid">
-          <div className="stat-card">
-            <span className="stat-value">{quizAttempts.length}</span>
-            <span className="stat-label">Total Submissions</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-value">
-              {quizAttempts.length
-                ? Math.round(quizAttempts.reduce((acc, curr) => acc + curr.score, 0) / quizAttempts.length)
-                : 0}%
+          {quizCode && (
+            <span className="badge badge-accent" style={{ marginBottom: "8px", fontFamily: "var(--font-mono)" }}>
+              CODE: {quizCode}
             </span>
-            <span className="stat-label">Class Average Score</span>
-          </div>
+          )}
+          <h1 style={{ fontSize: "28px" }}>Results & Submissions: {quizTitle}</h1>
         </div>
 
-        <div className="table-wrapper" style={{ marginTop: "24px" }}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Student Code</th>
-                <th>Attempt Date</th>
-                <th>Correct / Total</th>
-                <th>Percentage</th>
-                <th>Review</th>
-              </tr>
-            </thead>
-            <tbody>
-              {quizAttempts.length === 0 ? (
-                <tr>
-                  <td colSpan="5" style={{ textAlign: "center", color: "var(--color-text-muted)" }}>
-                    No student submissions recorded yet.
-                  </td>
-                </tr>
-              ) : (
-                quizAttempts.map((att) => (
-                  <tr key={att.attemptId}>
-                    <td style={{ fontFamily: "var(--font-mono)" }}>{att.studentCode || "STU-9482"}</td>
-                    <td>{att.date}</td>
-                    <td>{att.correctCount} / {att.total}</td>
-                    <td>
-                      <span className={`badge ${att.score >= 70 ? "badge-success" : "badge-danger"}`}>
-                        {att.score}%
-                      </span>
-                    </td>
-                    <td>
-                      <Link to={`/student/result/${att.attemptId}/review`} className="btn btn-ghost btn-sm">
-                        Inspect Review →
-                      </Link>
-                    </td>
+        {error && (
+          <div className="form-error" style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>{error}</span>
+            <button className="btn btn-ghost btn-sm" onClick={fetchResults}>Retry</button>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="card" style={{ padding: "48px", textAlign: "center" }}>
+            <div className="pulse-dot" style={{ margin: "0 auto 16px" }} />
+            <p style={{ color: "var(--color-text-secondary)", fontSize: "15px" }}>Loading quiz submissions from Django backend...</p>
+          </div>
+        ) : (
+          <>
+            <div className="stat-grid">
+              <div className="stat-card">
+                <span className="stat-value">{totalSubmissions}</span>
+                <span className="stat-label">Total Submissions</span>
+              </div>
+              <div className="stat-card">
+                <span className="stat-value">{avgScore}%</span>
+                <span className="stat-label">Class Average Score</span>
+              </div>
+            </div>
+
+            <div className="table-wrapper" style={{ marginTop: "24px" }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Student Code</th>
+                    <th>Student Name</th>
+                    <th>Submitted Time</th>
+                    <th>Score / Total</th>
+                    <th>Percentage</th>
+                    <th>Review</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody>
+                  {attempts.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" style={{ textAlign: "center", color: "var(--color-text-muted)", padding: "32px" }}>
+                        No student submissions recorded yet for this assessment.
+                      </td>
+                    </tr>
+                  ) : (
+                    attempts.map((att) => {
+                      const attId = att.attempt_id || att.id || att.attemptId;
+                      const score = att.score ?? att.percentage ?? 0;
+                      const total = att.total_questions ?? att.total ?? 0;
+                      const correct = att.correct_count ?? att.correctCount ?? 0;
+                      const studentCode = att.student_code || att.studentCode || att.user_code || "STU";
+                      const studentName = att.student_name || att.studentName || att.student || "Student";
+                      const submittedTime = att.submitted_at || att.date || "Recently";
+
+                      return (
+                        <tr key={attId || Math.random()}>
+                          <td style={{ fontFamily: "var(--font-mono)" }}>{studentCode}</td>
+                          <td style={{ fontWeight: "600" }}>{studentName}</td>
+                          <td style={{ color: "var(--color-text-secondary)" }}>{submittedTime}</td>
+                          <td>
+                            {total > 0 ? `${correct} / ${total}` : `${score}%`}
+                          </td>
+                          <td>
+                            <span className={`badge ${score >= 70 ? "badge-success" : "badge-danger"}`}>
+                              {score}%
+                            </span>
+                          </td>
+                          <td>
+                            {attId ? (
+                              <Link to={`/student/result/${attId}/review`} className="btn btn-ghost btn-sm">
+                                Inspect Review →
+                              </Link>
+                            ) : (
+                              <span style={{ color: "var(--color-text-muted)", fontSize: "12px" }}>N/A</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </main>
     </div>
   );

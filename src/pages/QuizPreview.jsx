@@ -1,151 +1,151 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { quizService } from "../services/quizService";
 import Navbar from "../components/Navbar";
 
 export default function QuizPreview() {
   const { quizId } = useParams();
-  const { quizzes, updateQuiz } = useAuth();
   const navigate = useNavigate();
 
-  const quiz = quizzes.find((q) => q.id === quizId) || quizzes[0];
-
-  // Local editing state for Verify & Modify
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedQuiz, setEditedQuiz] = useState(null);
+  const [quiz, setQuiz] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState("");
   const [copiedCodeToast, setCopiedCodeToast] = useState(false);
-  const [saveSuccessToast, setSaveSuccessToast] = useState(false);
+  const [actionSuccessToast, setActionSuccessToast] = useState("");
+
+  const fetchQuizPreview = async () => {
+    if (!quizId) return;
+    try {
+      setLoading(true);
+      setError("");
+      const res = await quizService.getQuizPreview(quizId);
+      const quizData = res?.quiz || res?.data || res;
+      setQuiz(quizData);
+    } catch (err) {
+      console.error("[QuizPreview] Error fetching preview:", err);
+      setError(err.message || "Failed to load quiz preview.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (quiz) {
-      setEditedQuiz(JSON.parse(JSON.stringify(quiz)));
-    }
-  }, [quiz]);
+    fetchQuizPreview();
+  }, [quizId]);
 
-  if (!quiz || !editedQuiz) {
+  const handleActivate = async () => {
+    if (!quizId) return;
+    try {
+      setActionLoading(true);
+      setError("");
+      const res = await quizService.activateQuiz(quizId);
+      setActionSuccessToast("✔ Quiz successfully activated for students!");
+      setTimeout(() => setActionSuccessToast(""), 3000);
+      await fetchQuizPreview();
+    } catch (err) {
+      console.error("[QuizPreview] Error activating quiz:", err);
+      setError(err.message || "Failed to activate quiz.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleClose = async () => {
+    if (!quizId) return;
+    try {
+      setActionLoading(true);
+      setError("");
+      const res = await quizService.closeQuiz(quizId);
+      setActionSuccessToast("✔ Quiz closed. No further student attempts allowed.");
+      setTimeout(() => setActionSuccessToast(""), 3000);
+      await fetchQuizPreview();
+    } catch (err) {
+      console.error("[QuizPreview] Error closing quiz:", err);
+      setError(err.message || "Failed to close quiz.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCopyReferenceCode = () => {
+    const code = quiz?.code || quiz?.quiz_code;
+    if (code) {
+      navigator.clipboard.writeText(code);
+      setCopiedCodeToast(true);
+      setTimeout(() => setCopiedCodeToast(false), 2000);
+    }
+  };
+
+  // Helper to normalize questions array
+  const normalizeQuestions = (rawQuestions = []) => {
+    return rawQuestions.map((q, idx) => {
+      const qText = q.question_text || q.question || `Question ${idx + 1}`;
+      let options = [];
+      if (Array.isArray(q.options)) {
+        options = q.options;
+      } else {
+        options = [
+          q.option_a || "Option A",
+          q.option_b || "Option B",
+          q.option_c || "Option C",
+          q.option_d || "Option D"
+        ].filter(Boolean);
+      }
+
+      // Resolve correct answer indicator
+      let correctDisplay = q.correct_answer || q.correctAnswer;
+      if (typeof q.correctIndex === "number") {
+        correctDisplay = `Option ${String.fromCharCode(65 + q.correctIndex)}: ${options[q.correctIndex] || ""}`;
+      }
+
+      return {
+        id: q.id || idx,
+        question: qText,
+        options,
+        correct_answer: correctDisplay,
+        explanation: q.explanation || ""
+      };
+    });
+  };
+
+  if (loading) {
     return (
       <div className="app-shell">
         <Navbar />
         <main className="app-content container">
-          <div className="card empty-state">
-            <p>Quiz not found.</p>
-            <button className="btn btn-primary btn-sm" onClick={() => navigate("/staff/dashboard")}>
-              Return to Dashboard
-            </button>
+          <div className="card" style={{ padding: "48px", textAlign: "center" }}>
+            <div className="pulse-dot" style={{ margin: "0 auto 16px" }} />
+            <p style={{ color: "var(--color-text-secondary)", fontSize: "15px" }}>Loading quiz preview from server...</p>
           </div>
         </main>
       </div>
     );
   }
 
-  const handleCopyReferenceCode = () => {
-    navigator.clipboard.writeText(editedQuiz.code);
-    setCopiedCodeToast(true);
-    setTimeout(() => setCopiedCodeToast(false), 2000);
-  };
+  if (error || !quiz) {
+    return (
+      <div className="app-shell">
+        <Navbar />
+        <main className="app-content container">
+          <div className="card empty-state">
+            <p>{error || "Quiz not found."}</p>
+            <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginTop: "16px" }}>
+              <button className="btn btn-secondary btn-sm" onClick={fetchQuizPreview}>Retry</button>
+              <button className="btn btn-primary btn-sm" onClick={() => navigate("/staff/dashboard")}>
+                Return to Dashboard
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
-  const handleQuestionTextChange = (idx, text) => {
-    const updatedQuestions = [...editedQuiz.questions];
-    updatedQuestions[idx].question = text;
-    setEditedQuiz({ ...editedQuiz, questions: updatedQuestions });
-  };
-
-  const handleOptionChange = (qIdx, oIdx, text) => {
-    const updatedQuestions = [...editedQuiz.questions];
-    updatedQuestions[qIdx].options[oIdx] = text;
-    setEditedQuiz({ ...editedQuiz, questions: updatedQuestions });
-  };
-
-  const handleCorrectIndexChange = (qIdx, oIdx) => {
-    const updatedQuestions = [...editedQuiz.questions];
-    updatedQuestions[qIdx].correctIndex = oIdx;
-    setEditedQuiz({ ...editedQuiz, questions: updatedQuestions });
-  };
-
-  const handleExplanationChange = (qIdx, text) => {
-    const updatedQuestions = [...editedQuiz.questions];
-    updatedQuestions[qIdx].explanation = text;
-    setEditedQuiz({ ...editedQuiz, questions: updatedQuestions });
-  };
-
-  const handleAddQuestion = () => {
-    const newQ = {
-      id: `q-${Date.now()}`,
-      question: "New Custom Question Statement",
-      options: ["Option 1", "Option 2", "Option 3", "Option 4"],
-      correctIndex: 0,
-      explanation: "Add explanation..."
-    };
-    setEditedQuiz({
-      ...editedQuiz,
-      questions: [...editedQuiz.questions, newQ],
-      questionsCount: editedQuiz.questions.length + 1
-    });
-  };
-
-  const handleDeleteQuestion = (qIdx) => {
-    const updatedQuestions = editedQuiz.questions.filter((_, idx) => idx !== qIdx);
-    setEditedQuiz({
-      ...editedQuiz,
-      questions: updatedQuestions,
-      questionsCount: updatedQuestions.length
-    });
-  };
-
-  const handleSaveChanges = () => {
-    updateQuiz(quiz.id, {
-      ...editedQuiz,
-      questionsCount: editedQuiz.questions.length
-    });
-    setIsEditing(false);
-    setSaveSuccessToast(true);
-    setTimeout(() => setSaveSuccessToast(false), 2500);
-  };
-
-  const handleToggleAssign = () => {
-    const newAssignedStatus = !editedQuiz.assigned;
-    setEditedQuiz({ ...editedQuiz, assigned: newAssignedStatus });
-    updateQuiz(quiz.id, { assigned: newAssignedStatus });
-  };
-
-  // Download Quiz as JSON
-  const handleDownloadJSON = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(editedQuiz, null, 2));
-    const downloadAnchor = document.createElement("a");
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `${editedQuiz.code}_${editedQuiz.title.replace(/\s+/g, "_")}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-  };
-
-  // Download Quiz as Printable TXT
-  const handleDownloadTXT = () => {
-    let txt = `========================================================\n`;
-    txt += `QUIZ ASSESSMENT: ${editedQuiz.title}\n`;
-    txt += `REFERENCE CODE: ${editedQuiz.code} | DIFFICULTY: ${editedQuiz.difficulty || "Medium"}\n`;
-    txt += `TIME LIMIT: ${editedQuiz.timeLimit} MINUTES | TOTAL QUESTIONS: ${editedQuiz.questions.length}\n`;
-    txt += `========================================================\n\n`;
-
-    editedQuiz.questions.forEach((q, idx) => {
-      txt += `Q${idx + 1}: ${q.question}\n`;
-      q.options.forEach((opt, oIdx) => {
-        const letter = String.fromCharCode(65 + oIdx);
-        txt += `   [${letter}] ${opt}\n`;
-      });
-      txt += `   Answer: Option ${String.fromCharCode(65 + q.correctIndex)}\n`;
-      if (q.explanation) txt += `   Explanation: ${q.explanation}\n`;
-      txt += `\n--------------------------------------------------------\n\n`;
-    });
-
-    const dataStr = "data:text/plain;charset=utf-8," + encodeURIComponent(txt);
-    const downloadAnchor = document.createElement("a");
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `${editedQuiz.code}_Printable.txt`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-  };
+  const questions = normalizeQuestions(quiz.questions || []);
+  const quizCode = quiz.code || quiz.quiz_code || "DRAFT";
+  const isQuizActive = quiz.status === "ACTIVE" || quiz.is_active;
+  const isQuizClosed = quiz.status === "CLOSED";
 
   return (
     <div className="app-shell">
@@ -164,195 +164,148 @@ export default function QuizPreview() {
           <div>
             <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "8px" }}>
               <span className="badge badge-accent" style={{ fontFamily: "var(--font-mono)", fontSize: "12px" }}>
-                CODE: {editedQuiz.code}
+                CODE: {quizCode}
               </span>
-              <span className="badge badge-neutral">
-                {editedQuiz.difficulty ? `${editedQuiz.difficulty} Difficulty` : "Medium"}
+              <span className="badge badge-neutral" style={{ textTransform: "uppercase" }}>
+                {quiz.difficulty || "MEDIUM"} DIFFICULTY
               </span>
-              <span className={`badge ${editedQuiz.assigned ? "badge-success" : "badge-neutral"}`}>
-                {editedQuiz.assigned ? "● Assigned to Students" : "Draft"}
+              <span className={`badge ${isQuizActive ? "badge-success" : isQuizClosed ? "badge-danger" : "badge-neutral"}`}>
+                ● {quiz.status || (isQuizActive ? "ACTIVE" : "DRAFT")}
               </span>
+              {quiz.generation_mode && (
+                <span className="badge badge-neutral" style={{ fontSize: "11px" }}>
+                  Mode: {quiz.generation_mode}
+                </span>
+              )}
             </div>
-            <h1 style={{ fontSize: "28px" }}>Quiz Generated: {editedQuiz.title}</h1>
-            <p style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>
-              Verify, edit questions, assign reference code to students, or download offline.
+            <h1 style={{ fontSize: "28px" }}>{quiz.title}</h1>
+            <p style={{ color: "var(--color-text-secondary)", fontSize: "14px", marginTop: "4px" }}>
+              {quiz.description || "Review questions, manage active status, and share reference code with students."}
             </p>
           </div>
 
           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <button className="btn btn-secondary btn-md" onClick={handleCopyReferenceCode}>
-              {copiedCodeToast ? "✓ Code Copied!" : `📋 Copy Code (${editedQuiz.code})`}
-            </button>
-            <button className="btn btn-secondary btn-md" onClick={handleToggleAssign}>
-              {editedQuiz.assigned ? "Unassign Quiz" : "✓ Assign Quiz"}
-            </button>
-            <button className="btn btn-secondary btn-md" onClick={handleDownloadJSON}>
-              ⬇ Download JSON
-            </button>
-            <button className="btn btn-secondary btn-md" onClick={handleDownloadTXT}>
-              📄 Download TXT
-            </button>
-            {!isEditing ? (
-              <button className="btn btn-primary btn-md" onClick={() => setIsEditing(true)}>
-                ✏ Edit & Verify Questions
-              </button>
-            ) : (
-              <button className="btn btn-primary btn-md" onClick={handleSaveChanges}>
-                💾 Save Modifications
+            {quizCode && quizCode !== "DRAFT" && (
+              <button className="btn btn-secondary btn-md" onClick={handleCopyReferenceCode}>
+                {copiedCodeToast ? "✓ Code Copied!" : `📋 Copy Code (${quizCode})`}
               </button>
             )}
+
+            {!isQuizActive && !isQuizClosed && (
+              <button
+                className="btn btn-primary btn-md"
+                onClick={handleActivate}
+                disabled={actionLoading}
+              >
+                {actionLoading ? "Activating..." : "⚡ Activate Quiz"}
+              </button>
+            )}
+
+            {isQuizActive && (
+              <button
+                className="btn btn-danger btn-md"
+                onClick={handleClose}
+                disabled={actionLoading}
+              >
+                {actionLoading ? "Closing..." : "✕ Close Quiz"}
+              </button>
+            )}
+
+            <Link to={`/staff/quiz/${quizId}/results`} className="btn btn-secondary btn-md">
+              📊 View Results
+            </Link>
           </div>
         </div>
 
-        {saveSuccessToast && (
+        {actionSuccessToast && (
           <div className="badge badge-success" style={{ padding: "10px 16px", marginBottom: "16px", display: "block" }}>
-            ✔ Quiz modifications successfully saved!
+            {actionSuccessToast}
           </div>
         )}
 
         {/* Reference Code Card Banner */}
         <div className="card" style={{ marginBottom: "24px", background: "var(--color-elevated)", border: "1px solid var(--color-border)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
             <div>
               <span style={{ fontSize: "12px", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                 Student Access Reference Code
               </span>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: "26px", color: "var(--color-accent)", fontWeight: "bold", marginTop: "2px" }}>
-                {editedQuiz.code}
+                {quizCode}
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
               <p style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
-                Share this reference code with students to attempt the quiz.
+                Status: <strong style={{ color: isQuizActive ? "var(--color-success)" : "inherit" }}>{quiz.status || "DRAFT"}</strong>
               </p>
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => navigate(`/student/quiz/${editedQuiz.id}`)}
-                style={{ marginTop: "4px" }}
-              >
-                Test Student Experience →
-              </button>
+              {isQuizActive && (
+                <span className="badge badge-success" style={{ marginTop: "4px" }}>
+                  Ready for student attempts
+                </span>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Questions Verification & Modification List */}
+        {/* Questions Verification List */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-          <h2 style={{ fontSize: "20px" }}>Questions ({editedQuiz.questions.length})</h2>
-          {isEditing && (
-            <button className="btn btn-secondary btn-sm" onClick={handleAddQuestion}>
-              + Add New Question
-            </button>
-          )}
+          <h2 style={{ fontSize: "20px" }}>Questions ({questions.length})</h2>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          {editedQuiz.questions.map((q, qIdx) => (
-            <div key={q.id || qIdx} className="card">
-              {!isEditing ? (
-                /* READ-ONLY / VERIFY MODE */
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
-                    <h3 style={{ fontSize: "16px" }}>
-                      {qIdx + 1}. {q.question}
-                    </h3>
-                  </div>
+          {questions.length === 0 ? (
+            <div className="card empty-state">
+              <p>No questions generated for this assessment yet.</p>
+              <Link to={`/staff/quiz/${quizId}/terminal`} className="btn btn-secondary btn-sm" style={{ marginTop: "12px" }}>
+                Generate with AI Specification
+              </Link>
+            </div>
+          ) : (
+            questions.map((q, qIdx) => (
+              <div key={q.id || qIdx} className="card">
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
+                  <h3 style={{ fontSize: "16px" }}>
+                    {qIdx + 1}. {q.question}
+                  </h3>
+                </div>
 
-                  <div className="options-grid">
-                    {q.options.map((opt, oIdx) => (
+                <div className="options-grid">
+                  {q.options.map((opt, oIdx) => {
+                    const letter = String.fromCharCode(65 + oIdx);
+                    const isCorrect =
+                      String(q.correct_answer).toLowerCase().includes(`option_${letter.toLowerCase()}`) ||
+                      String(q.correct_answer).toLowerCase().includes(`option ${letter.toLowerCase()}`) ||
+                      String(q.correct_answer).trim() === opt.trim();
+
+                    return (
                       <div
                         key={oIdx}
-                        className={`option-btn ${q.correctIndex === oIdx ? "correct" : ""}`}
+                        className={`option-btn ${isCorrect ? "correct" : ""}`}
                         style={{ cursor: "default" }}
                       >
-                        <span className="option-indicator">{String.fromCharCode(65 + oIdx)}</span>
+                        <span className="option-indicator">{letter}</span>
                         <span>{opt}</span>
-                        {q.correctIndex === oIdx && <span style={{ marginLeft: "auto", fontSize: "12px" }}>✓ Correct Answer</span>}
+                        {isCorrect && <span style={{ marginLeft: "auto", fontSize: "12px" }}>✓ Correct Answer</span>}
                       </div>
-                    ))}
-                  </div>
-
-                  {q.explanation && (
-                    <div className="review-explanation" style={{ marginTop: "12px" }}>
-                      <strong>Diagnostic Explanation:</strong> {q.explanation}
-                    </div>
-                  )}
+                    );
+                  })}
                 </div>
-              ) : (
-                /* EDIT / MODIFY MODE */
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                    <label className="label">Question #{qIdx + 1}</label>
-                    <button
-                      className="btn btn-danger btn-sm"
-                      onClick={() => handleDeleteQuestion(qIdx)}
-                    >
-                      Delete Question
-                    </button>
-                  </div>
 
-                  <div className="form-group">
-                    <input
-                      className="input"
-                      type="text"
-                      value={q.question}
-                      onChange={(e) => handleQuestionTextChange(qIdx, e.target.value)}
-                      placeholder="Enter question text..."
-                      required
-                    />
+                {q.correct_answer && (
+                  <div style={{ marginTop: "12px", fontSize: "13px", color: "var(--color-accent)", fontFamily: "var(--font-mono)" }}>
+                    <strong>Correct Answer:</strong> {q.correct_answer}
                   </div>
+                )}
 
-                  <div className="form-group">
-                    <label className="label">Options (Mark correct answer radio)</label>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                      {q.options.map((opt, oIdx) => (
-                        <div key={oIdx} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                          <input
-                            type="radio"
-                            name={`correct-${qIdx}`}
-                            checked={q.correctIndex === oIdx}
-                            onChange={() => handleCorrectIndexChange(qIdx, oIdx)}
-                            title="Mark as correct answer"
-                          />
-                          <input
-                            className="input"
-                            type="text"
-                            value={opt}
-                            onChange={(e) => handleOptionChange(qIdx, oIdx, e.target.value)}
-                            placeholder={`Option ${String.fromCharCode(65 + oIdx)}`}
-                            required
-                          />
-                        </div>
-                      ))}
-                    </div>
+                {q.explanation && (
+                  <div className="review-explanation" style={{ marginTop: "8px" }}>
+                    <strong>Diagnostic Explanation:</strong> {q.explanation}
                   </div>
-
-                  <div className="form-group">
-                    <label className="label">Explanation for answer feedback</label>
-                    <input
-                      className="input"
-                      type="text"
-                      value={q.explanation || ""}
-                      onChange={(e) => handleExplanationChange(qIdx, e.target.value)}
-                      placeholder="Explanation provided to student after quiz..."
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            ))
+          )}
         </div>
-
-        {isEditing && (
-          <div style={{ marginTop: "24px", display: "flex", gap: "12px", justifyContent: "flex-end" }}>
-            <button className="btn btn-secondary btn-md" onClick={() => setIsEditing(false)}>
-              Cancel Edits
-            </button>
-            <button className="btn btn-primary btn-md" onClick={handleSaveChanges}>
-              💾 Save All Modifications
-            </button>
-          </div>
-        )}
       </main>
     </div>
   );

@@ -1,283 +1,137 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import {
-  apiFetchQuizzes,
-  apiCreateQuiz,
-  apiUpdateQuiz,
-  apiSubmitAttempt,
-  apiFetchAttempts,
-} from "../api";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { authService } from "../services/authService";
 
 const AuthContext = createContext();
 
-const MOCK_QUIZZES = [
-  {
-    id: "q-101",
-    code: "REACT2024",
-    title: "React Fundamentals & State Architecture",
-    description: "Assess knowledge on hooks, virtual DOM, component lifecycles, and context API.",
-    difficulty: "Medium",
-    timeLimit: 15,
-    createdDate: "2026-08-20",
-    assigned: true,
-    questionsCount: 4,
-    questions: [
-      {
-        id: "q1",
-        question: "What is the primary function of React's useMemo hook?",
-        options: [
-          "To subscribe to external data stores",
-          "To cache calculation results between re-renders",
-          "To trigger side effects after component mounting",
-          "To handle DOM element refs directly"
-        ],
-        correctIndex: 1,
-        explanation: "useMemo caches the result of a calculation between re-renders to prevent expensive recalculations."
-      },
-      {
-        id: "q2",
-        question: "Which of the following is true about Virtual DOM?",
-        options: [
-          "It completely replaces the real browser DOM",
-          "It is a lightweight copy of the real DOM in memory",
-          "It directly executes GPU rendering pipelines",
-          "It only works with Server-Side Rendering"
-        ],
-        correctIndex: 1,
-        explanation: "The Virtual DOM is a lightweight JS representation of DOM trees used by React to compute minimal real DOM updates."
-      },
-      {
-        id: "q3",
-        question: "In Strict Mode, why do component render functions execute twice in development?",
-        options: [
-          "To double the application speed",
-          "To detect unexpected side effects and purity violations",
-          "It is a bug in React 18",
-          "To preload upcoming route chunks"
-        ],
-        correctIndex: 1,
-        explanation: "Double rendering helps spot accidental side-effects during render phase in development."
-      },
-      {
-        id: "q4",
-        question: "What happens when setState is passed a function updater instead of a value?",
-        options: [
-          "It causes an immediate synchronous DOM repaint",
-          "It receives the most up-to-date state as its argument",
-          "It automatically resets state to initial value",
-          "It creates an infinite loop by default"
-        ],
-        correctIndex: 1,
-        explanation: "Functional state updates receive the current pending state, ensuring safe sequential updates."
-      }
-    ]
-  },
-  {
-    id: "q-102",
-    code: "PYTHON301",
-    title: "Advanced Data Structures & Algorithms in Python",
-    description: "Deep dive into time complexity, memory allocation, and custom data structures.",
-    difficulty: "Tough",
-    timeLimit: 20,
-    createdDate: "2026-08-21",
-    assigned: true,
-    questionsCount: 3,
-    questions: [
-      {
-        id: "pq1",
-        question: "What is the average time complexity of searching in a Python set?",
-        options: ["O(N)", "O(log N)", "O(1)", "O(N log N)"],
-        correctIndex: 2,
-        explanation: "Python sets are implemented as hash tables, giving them average O(1) time complexity for membership checks."
-      },
-      {
-        id: "pq2",
-        question: "Which built-in module provides a double-ended queue with O(1) appends and pops?",
-        options: ["queue", "collections (deque)", "heapq", "sys"],
-        correctIndex: 1,
-        explanation: "collections.deque is optimized for fast O(1) appends and pops from both ends."
-      },
-      {
-        id: "pq3",
-        question: "What does the `__slots__` attribute do in a Python class?",
-        options: [
-          "Restricts attribute creation and saves memory",
-          "Enables automatic async/await support",
-          "Makes class instances immutable",
-          "Generates getter and setter methods"
-        ],
-        correctIndex: 0,
-        explanation: "__slots__ prevents dynamic __dict__ creation, reducing memory footprint per object."
-      }
-    ]
-  }
-];
-
-const INITIAL_ATTEMPTS = [
-  {
-    attemptId: "att-881",
-    quizId: "q-101",
-    quizTitle: "React Fundamentals & State Architecture",
-    score: 75,
-    total: 4,
-    correctCount: 3,
-    date: "2026-08-22 10:30 AM",
-    answers: { q1: 1, q2: 1, q3: 0, q4: 1 },
-    studentCode: "STU-9482",
-    studentName: "Jordan Lee"
-  }
-];
-
 export function AuthProvider({ children }) {
-  // Default user is null so opening the app lands on the landing page
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem("quest_user");
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const [registeredUsers, setRegisteredUsers] = useState(() => {
-    const saved = localStorage.getItem("quest_registered_users");
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [quizzes, setQuizzes] = useState(() => {
-    const saved = localStorage.getItem("quest_quizzes");
-    return saved ? JSON.parse(saved) : MOCK_QUIZZES;
-  });
-
-  const [attempts, setAttempts] = useState(() => {
-    const saved = localStorage.getItem("quest_attempts");
-    return saved ? JSON.parse(saved) : INITIAL_ATTEMPTS;
-  });
-
-  // Fetch initial data from Django backend if available
-  useEffect(() => {
-    async function initFromBackend() {
-      const backendQuizzes = await apiFetchQuizzes();
-      if (backendQuizzes && Array.isArray(backendQuizzes) && backendQuizzes.length > 0) {
-        setQuizzes(backendQuizzes);
+  // Restore authenticated session on application startup via GET /me/
+  const refreshUser = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await authService.getCurrentUser();
+      if (res && res.user) {
+        setUser(res.user);
+      } else if (res && (res.user_code || res.role || res.name)) {
+        setUser(res);
+      } else {
+        setUser(null);
       }
-      const backendAttempts = await apiFetchAttempts();
-      if (backendAttempts && Array.isArray(backendAttempts) && backendAttempts.length > 0) {
-        setAttempts(backendAttempts);
+    } catch (err) {
+      setUser(null);
+      if (!err.status || err.status !== 401) {
+        console.warn("[AuthContext] Unable to verify current session:", err.message);
       }
+    } finally {
+      setLoading(false);
     }
-    initFromBackend();
   }, []);
 
   useEffect(() => {
-    if (user) {
-      localStorage.setItem("quest_user", JSON.stringify(user));
-    } else {
-      localStorage.removeItem("quest_user");
-    }
-  }, [user]);
-
-  useEffect(() => {
-    localStorage.setItem("quest_registered_users", JSON.stringify(registeredUsers));
-  }, [registeredUsers]);
-
-  useEffect(() => {
-    localStorage.setItem("quest_quizzes", JSON.stringify(quizzes));
-  }, [quizzes]);
-
-  useEffect(() => {
-    localStorage.setItem("quest_attempts", JSON.stringify(attempts));
-  }, [attempts]);
+    refreshUser();
+  }, [refreshUser]);
 
   /**
-   * Universal Login or First-Time Account Creation Helper
-   * Requires user-entered credentials. No default dummy email or password fallbacks.
+   * Staff Login Flow (POST /staff/login/)
    */
-  const loginOrRegisterUser = ({ name, identity, password, role }) => {
-    const trimmedIdentity = identity ? identity.trim() : "";
-    if (!trimmedIdentity || !password) {
-      throw new Error("Login ID and Password are required.");
+  const loginAsStaff = async (credentials) => {
+    setError(null);
+    const res = await authService.loginStaff(credentials);
+    if (res && res.user) {
+      setUser(res.user);
+    } else {
+      await refreshUser();
     }
+    return res;
+  };
 
-    const existing = registeredUsers.find(
-      (u) => u.identity.toLowerCase() === trimmedIdentity.toLowerCase() && u.role === role
-    );
+  /**
+   * Student Login Flow (POST /student/login/)
+   */
+  const loginAsStudent = async (credentials) => {
+    setError(null);
+    const res = await authService.loginStudent(credentials);
+    if (res && res.user) {
+      setUser(res.user);
+    } else {
+      await refreshUser();
+    }
+    return res;
+  };
 
-    if (existing) {
-      if (existing.password && existing.password !== password) {
-        throw new Error("Invalid password for existing account.");
+  /**
+   * Student Registration Flow (POST /student/register/)
+   */
+  const registerStudent = async (data) => {
+    setError(null);
+    const res = await authService.registerStudent(data);
+    return res;
+  };
+
+  /**
+   * Universal Login or Register Helper for UI components
+   */
+  const loginOrRegisterUser = async ({ name, identity, password, role, isRegister }) => {
+    if (isRegister) {
+      if (role === "student") {
+        return await registerStudent({
+          name: name || identity,
+          email: identity,
+          password
+        });
+      } else {
+        throw new Error("Staff accounts must be provisioned by the system administrator.");
       }
-      setUser(existing);
-      return { user: existing, isNew: false };
     } else {
-      const userCode = trimmedIdentity.toUpperCase();
-      const newUser = {
-        name: name ? name.trim() : trimmedIdentity,
-        identity: trimmedIdentity,
-        email: trimmedIdentity,
-        code: userCode,
-        role,
-        password: password,
-        createdAt: new Date().toISOString()
-      };
-
-      setRegisteredUsers((prev) => [newUser, ...prev]);
-      setUser(newUser);
-      return { user: newUser, isNew: true };
+      if (role === "teacher" || role === "staff") {
+        return await loginAsStaff({
+          user_code: identity,
+          password
+        });
+      } else {
+        return await loginAsStudent({
+          user_code: identity,
+          password
+        });
+      }
     }
   };
 
-  const loginAsTeacher = (email, name, password) => {
-    return loginOrRegisterUser({ name, identity: email, password, role: "teacher" }).user;
-  };
-
-  const loginAsStudent = (code, name, password) => {
-    return loginOrRegisterUser({ name, identity: code, password, role: "student" }).user;
-  };
-
-  const registerStudent = (name, email, password) => {
-    return loginOrRegisterUser({ name, identity: email, password, role: "student" }).user;
-  };
-
-  const logout = () => {
-    setUser(null);
-  };
-
-  const switchRole = (role) => {
-    if (role === "teacher") {
-      loginAsTeacher();
-    } else {
-      loginAsStudent();
+  /**
+   * Logout Flow (POST /logout/)
+   */
+  const logout = async () => {
+    try {
+      await authService.logout();
+    } catch (err) {
+      console.warn("[AuthContext] Logout error:", err.message);
+    } finally {
+      setUser(null);
     }
   };
 
-  const addQuiz = async (newQuiz) => {
-    setQuizzes((prev) => [newQuiz, ...prev]);
-    await apiCreateQuiz(newQuiz);
-  };
-
-  const updateQuiz = async (quizId, updatedFields) => {
-    setQuizzes((prev) =>
-      prev.map((q) => (q.id === quizId ? { ...q, ...updatedFields } : q))
-    );
-    await apiUpdateQuiz(quizId, updatedFields);
-  };
-
-  const addAttempt = async (attempt) => {
-    setAttempts((prev) => [attempt, ...prev]);
-    await apiSubmitAttempt(attempt);
-  };
+  const role = user?.role || null;
+  const isAuthenticated = !!user;
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        quizzes,
-        attempts,
-        loginOrRegisterUser,
-        loginAsTeacher,
+        currentUser: user,
+        role,
+        isAuthenticated,
+        loading,
+        error,
+        loginAsStaff,
         loginAsStudent,
         registerStudent,
+        loginOrRegisterUser,
         logout,
-        switchRole,
-        addQuiz,
-        updateQuiz,
-        addAttempt
+        refreshUser
       }}
     >
       {children}

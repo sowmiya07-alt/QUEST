@@ -2,5 +2,5 @@ import React from "react";
 import AnimatedAuth from "../components/AnimatedAuth";
 
 export default function StudentLogin() {
-  return <AnimatedAuth initialRole="student" />;
+  return <AnimatedAuth initialRole="student" initialMode="login" />;
 }

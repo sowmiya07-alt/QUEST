@@ -15,7 +15,7 @@ const QUOTES_STUDENT = [
 ];
 
 export default function AnimatedAuth({ initialMode = "login", initialRole = "teacher" }) {
-  const { loginOrRegisterUser } = useAuth();
+  const { loginAsStaff, loginAsStudent, registerStudent } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -39,6 +39,7 @@ export default function AnimatedAuth({ initialMode = "login", initialRole = "tea
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [successToast, setSuccessToast] = useState("");
+  const [registeredCode, setRegisteredCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const isTeacher = role === "teacher";
@@ -47,10 +48,11 @@ export default function AnimatedAuth({ initialMode = "login", initialRole = "tea
   const quotesList = isTeacher ? QUOTES_TEACHER : QUOTES_STUDENT;
   const currentQuote = quotesList[activeQuoteIndex % quotesList.length];
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccessToast("");
+    setRegisteredCode("");
 
     if (isRegister && !name.trim()) {
       setError("Please enter your full name.");
@@ -63,31 +65,53 @@ export default function AnimatedAuth({ initialMode = "login", initialRole = "tea
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      try {
-        const { user, isNew } = loginOrRegisterUser({
-          name: name.trim() || identity.trim(),
-          identity: identity.trim(),
-          password: password.trim(),
-          role
-        });
-
-        setIsLoading(false);
-
-        if (isRegister && isNew) {
-          setSuccessToast(`Account created successfully. Authenticating into ${isTeacher ? "Faculty Console" : "Student Portal"}...`);
+    try {
+      if (isRegister) {
+        if (!isTeacher) {
+          const res = await registerStudent({
+            name: name.trim(),
+            email: identity.trim(),
+            password: password.trim()
+          });
+          const userCode = res?.user?.user_code || res?.user_code || res?.code;
+          if (userCode) {
+            setRegisteredCode(userCode);
+            setSuccessToast(`Account created! Your Student ID is ${userCode}.`);
+          } else {
+            setSuccessToast("Account created successfully. You can now sign in.");
+          }
         } else {
-          setSuccessToast(`Welcome back, ${user.name}. Redirecting...`);
+          throw new Error("Staff accounts must be registered by system administrator.");
         }
-
-        setTimeout(() => {
-          navigate(isTeacher ? "/staff/dashboard" : "/student/dashboard");
-        }, 800);
-      } catch (err) {
-        setIsLoading(false);
-        setError(err.message || "Authentication failed. Please check your credentials.");
+      } else {
+        if (isTeacher) {
+          const res = await loginAsStaff({
+            user_code: identity.trim(),
+            password: password.trim()
+          });
+          const facultyName = res?.user?.name || "Faculty Member";
+          setSuccessToast(`Welcome back, ${facultyName}. Redirecting to Faculty Console...`);
+          setTimeout(() => {
+            navigate("/staff/dashboard");
+          }, 800);
+        } else {
+          const res = await loginAsStudent({
+            user_code: identity.trim(),
+            password: password.trim()
+          });
+          const studentName = res?.user?.name || "Student";
+          setSuccessToast(`Welcome back, ${studentName}. Redirecting to Student Portal...`);
+          setTimeout(() => {
+            navigate("/student/dashboard");
+          }, 800);
+        }
       }
-    }, 500);
+    } catch (err) {
+      console.error("[AnimatedAuth] Error:", err);
+      setError(err.message || "Authentication failed. Please verify your credentials.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -160,6 +184,8 @@ export default function AnimatedAuth({ initialMode = "login", initialRole = "tea
               onClick={() => {
                 setRole("teacher");
                 setError("");
+                setSuccessToast("");
+                setRegisteredCode("");
                 setActiveQuoteIndex(0);
               }}
             >
@@ -171,6 +197,8 @@ export default function AnimatedAuth({ initialMode = "login", initialRole = "tea
               onClick={() => {
                 setRole("student");
                 setError("");
+                setSuccessToast("");
+                setRegisteredCode("");
                 setActiveQuoteIndex(0);
               }}
             >
@@ -192,100 +220,127 @@ export default function AnimatedAuth({ initialMode = "login", initialRole = "tea
             </p>
           </div>
 
-          {/* Toast / Error */}
+          {/* Toast / Error / Success Code Display */}
           {error && <div className="form-error">{error}</div>}
           {successToast && (
-            <div className="badge badge-success" style={{ padding: "12px", width: "100%", marginBottom: "16px", textTransform: "none", fontSize: "13px" }}>
+            <div className="badge badge-success" style={{ padding: "12px", width: "100%", marginBottom: "16px", textTransform: "none", fontSize: "13px", display: "block", textAlign: "center" }}>
               {successToast}
             </div>
           )}
 
-          {/* Clean Form */}
-          <form onSubmit={handleSubmit} className="auth-form-fields">
-            {/* Full Name field (Only in Register mode) */}
-            {isRegister && (
+          {registeredCode ? (
+            <div style={{ textAlign: "center", padding: "16px 0" }}>
+              <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "8px" }}>
+                Your unique Student Access Code:
+              </p>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "22px", fontWeight: "700", color: "var(--color-accent)", padding: "12px", background: "var(--color-elevated)", borderRadius: "8px", marginBottom: "16px" }}>
+                {registeredCode}
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary btn-full btn-lg"
+                onClick={() => {
+                  setMode("login");
+                  setIdentity(registeredCode);
+                  setRegisteredCode("");
+                  setSuccessToast("");
+                }}
+              >
+                Continue to Student Sign In →
+              </button>
+            </div>
+          ) : (
+            /* Clean Form */
+            <form onSubmit={handleSubmit} className="auth-form-fields">
+              {/* Full Name field (Only in Register mode) */}
+              {isRegister && (
+                <div className="form-group">
+                  <label className="label">
+                    {isTeacher ? "Faculty Full Name *" : "Student Full Name *"}
+                  </label>
+                  <input
+                    className="input"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter full name"
+                    required={isRegister}
+                  />
+                </div>
+              )}
+
+              {/* Identity / Email / Student Code */}
               <div className="form-group">
                 <label className="label">
-                  {isTeacher ? "Faculty Full Name *" : "Student Full Name *"}
+                  {isRegister
+                    ? "Email Address *"
+                    : isTeacher
+                    ? "Staff User Code *"
+                    : "Student Code or Email ID *"}
                 </label>
                 <input
                   className="input"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter full name"
-                  required={isRegister}
-                />
-              </div>
-            )}
-
-            {/* Identity / Email / Student Code */}
-            <div className="form-group">
-              <label className="label">
-                {isTeacher ? "Institutional Email or User ID *" : "Student Code or Email ID *"}
-              </label>
-              <input
-                className="input"
-                type={isTeacher ? "email" : "text"}
-                value={identity}
-                onChange={(e) => setIdentity(e.target.value)}
-                placeholder={isTeacher ? "Enter email address or faculty ID" : "Enter student code or email"}
-                required
-              />
-            </div>
-
-            {/* Password with Text Reveal Toggle */}
-            <div className="form-group">
-              <label className="label">Password *</label>
-              <div className="animated-input-wrapper">
-                <input
-                  className="input"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter account password"
+                  type={isRegister ? "email" : "text"}
+                  value={identity}
+                  onChange={(e) => setIdentity(e.target.value)}
+                  placeholder={isRegister ? "student@university.edu" : isTeacher ? "e.g. TCH-5510 or staff code" : "e.g. STU-72XDA9"}
                   required
                 />
-                <button
-                  type="button"
-                  className="password-toggle-btn"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{ fontSize: "11px", fontWeight: "600", color: "var(--color-text-secondary)" }}
-                >
-                  {showPassword ? "HIDE" : "SHOW"}
-                </button>
               </div>
-            </div>
 
-            {/* Clean Submit Button */}
-            <button
-              type="submit"
-              className="btn btn-primary btn-full btn-lg auth-submit-btn"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                "Authenticating..."
-              ) : isRegister ? (
-                `Create ${isTeacher ? "Faculty" : "Student"} Account →`
-              ) : (
-                `Sign In as ${isTeacher ? "Faculty" : "Student"} →`
-              )}
-            </button>
-          </form>
+              {/* Password with Text Reveal Toggle */}
+              <div className="form-group">
+                <label className="label">Password *</label>
+                <div className="animated-input-wrapper">
+                  <input
+                    className="input"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter account password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle-btn"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{ fontSize: "11px", fontWeight: "600", color: "var(--color-text-secondary)" }}
+                  >
+                    {showPassword ? "HIDE" : "SHOW"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Clean Submit Button */}
+              <button
+                type="submit"
+                className="btn btn-primary btn-full btn-lg auth-submit-btn"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  "Authenticating..."
+                ) : isRegister ? (
+                  `Create ${isTeacher ? "Faculty" : "Student"} Account →`
+                ) : (
+                  `Sign In as ${isTeacher ? "Faculty" : "Student"} →`
+                )}
+              </button>
+            </form>
+          )}
 
           {/* Clean Bottom Mode Toggle Link */}
           <div className="form-footer-toggle">
             {isRegister ? (
               <span>
                 Already registered?{" "}
-                <button type="button" className="text-link-btn" onClick={() => setMode("login")}>
+                <button type="button" className="text-link-btn" onClick={() => { setMode("login"); setError(""); setSuccessToast(""); setRegisteredCode(""); }}>
                   Sign In
                 </button>
               </span>
             ) : (
               <span>
                 Don't have an account?{" "}
-                <button type="button" className="text-link-btn" onClick={() => setMode("register")}>
+                <button type="button" className="text-link-btn" onClick={() => { setMode("register"); setError(""); setSuccessToast(""); setRegisteredCode(""); }}>
                   Create an account
                 </button>
               </span>
