@@ -39,7 +39,7 @@ export default function TeacherDashboard() {
           <div className="stat-card">
             <div className="stat-card-header">
               <span className="stat-label">Active Quizzes</span>
-              <span className="stat-icon">📚</span>
+              <div className="stat-icon-badge">📚</div>
             </div>
             <span className="stat-value">{quizzes.length}</span>
           </div>
@@ -47,7 +47,7 @@ export default function TeacherDashboard() {
           <div className="stat-card">
             <div className="stat-card-header">
               <span className="stat-label">Total Submissions</span>
-              <span className="stat-icon">📥</span>
+              <div className="stat-icon-badge">📥</div>
             </div>
             <span className="stat-value">{totalSubmissions}</span>
           </div>
@@ -55,7 +55,7 @@ export default function TeacherDashboard() {
           <div className="stat-card">
             <div className="stat-card-header">
               <span className="stat-label">Class Average Score</span>
-              <span className="stat-icon">📈</span>
+              <div className="stat-icon-badge">📈</div>
             </div>
             <span className="stat-value">{avgClassScore}%</span>
           </div>

@@ -84,7 +84,7 @@ export default function StudentDashboard() {
           <div className="stat-card">
             <div className="stat-card-header">
               <span className="stat-label">Assigned Quizzes</span>
-              <span className="stat-icon">📚</span>
+              <div className="stat-icon-badge">📚</div>
             </div>
             <span className="stat-value">{quizzes.length}</span>
           </div>
@@ -92,7 +92,7 @@ export default function StudentDashboard() {
           <div className="stat-card">
             <div className="stat-card-header">
               <span className="stat-label">Completed Attempts</span>
-              <span className="stat-icon">✅</span>
+              <div className="stat-icon-badge">✅</div>
             </div>
             <span className="stat-value">{userAttempts.length}</span>
           </div>
@@ -100,7 +100,7 @@ export default function StudentDashboard() {
           <div className="stat-card">
             <div className="stat-card-header">
               <span className="stat-label">Average Score</span>
-              <span className="stat-icon">📊</span>
+              <div className="stat-icon-badge">📊</div>
             </div>
             <span className="stat-value">{avgScore}%</span>
           </div>
