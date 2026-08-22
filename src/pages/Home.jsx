@@ -78,51 +78,51 @@ export default function Home() {
           </div>
 
           <div className="features-grid">
-            <div className="feature-card">
+            <div className="feature-card card-amber">
               <div className="feature-card-top">
                 <div className="feature-icon-wrapper icon-amber">
                   <span className="feature-icon">⚡</span>
                 </div>
-                <span className="badge badge-neutral" style={{ fontSize: "10px" }}>CLI PROMPTS</span>
+                <span className="badge badge-amber">CLI PROMPTS</span>
               </div>
               <h3 className="feature-card-title">AI Terminal Specification</h3>
               <p className="feature-card-desc">
                 Generate precise quiz questions and rubrics using prompt specifications directly in an integrated terminal workflow.
               </p>
               <Link to={isTeacher ? "/staff/quiz/create/terminal" : "/student/login"} className="feature-card-link">
-                Explore Terminal Spec →
+                <span>Explore Terminal Spec</span> <span className="arrow-icon">→</span>
               </Link>
             </div>
 
-            <div className="feature-card">
+            <div className="feature-card card-blue">
               <div className="feature-card-top">
                 <div className="feature-icon-wrapper icon-blue">
                   <span className="feature-icon">🎯</span>
                 </div>
-                <span className="badge badge-neutral" style={{ fontSize: "10px" }}>REAL-TIME REVIEWS</span>
+                <span className="badge badge-blue">REAL-TIME REVIEWS</span>
               </div>
               <h3 className="feature-card-title">Instant Diagnostic Feedback</h3>
               <p className="feature-card-desc">
                 Students receive instantaneous score breakdowns and step-by-step wrong answer reviews with clear explanations.
               </p>
               <Link to={user ? "/student/attempts" : "/student/login"} className="feature-card-link">
-                View Feedback Sample →
+                <span>View Feedback Sample</span> <span className="arrow-icon">→</span>
               </Link>
             </div>
 
-            <div className="feature-card">
+            <div className="feature-card card-emerald">
               <div className="feature-card-top">
                 <div className="feature-icon-wrapper icon-emerald">
                   <span className="feature-icon">🔒</span>
                 </div>
-                <span className="badge badge-neutral" style={{ fontSize: "10px" }}>ISOLATED ROLES</span>
+                <span className="badge badge-emerald">ISOLATED ROLES</span>
               </div>
               <h3 className="feature-card-title">Role-Based Access Control</h3>
               <p className="feature-card-desc">
                 Distinct security boundaries for students and staff with unique access codes and state management.
               </p>
               <Link to="/staff/login" className="feature-card-link">
-                Faculty Access Control →
+                <span>Faculty Access Control</span> <span className="arrow-icon">→</span>
               </Link>
             </div>
           </div>
@@ -241,6 +241,21 @@ export default function Home() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </section>
+
+        {/* Bottom CTA Banner Section */}
+        <section className="cta-banner-section">
+          <div className="cta-banner-card">
+            <div className="cta-banner-content">
+              <h2 className="cta-title">Ready to transform your assessment workflow?</h2>
+              <p className="cta-desc">Start building AI prompt specifications or join an assessment room immediately.</p>
+            </div>
+            <div className="cta-banner-buttons">
+              <Link to={user ? (isTeacher ? "/staff/dashboard" : "/student/dashboard") : "/student/login"} className="btn btn-primary btn-lg hero-btn-primary">
+                Get Started Now →
+              </Link>
             </div>
           </div>
         </section>

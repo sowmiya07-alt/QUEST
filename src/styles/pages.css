@@ -205,9 +205,20 @@
   content: "";
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 1px;
+  height: 2px;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
   opacity: 0.8;
+  transition: background 240ms ease;
+}
+
+.feature-card.card-amber:hover::before {
+  background: linear-gradient(90deg, transparent, #F59E0B, transparent);
+}
+.feature-card.card-blue:hover::before {
+  background: linear-gradient(90deg, transparent, #3B82F6, transparent);
+}
+.feature-card.card-emerald:hover::before {
+  background: linear-gradient(90deg, transparent, #10B981, transparent);
 }
 
 .feature-card:hover {
@@ -253,6 +264,28 @@
   font-size: 22px;
 }
 
+/* Tinted Badges */
+.badge-amber {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #F59E0B !important;
+  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+  font-size: 10px !important;
+}
+
+.badge-blue {
+  background: rgba(59, 130, 246, 0.12) !important;
+  color: #60A5FA !important;
+  border: 1px solid rgba(59, 130, 246, 0.3) !important;
+  font-size: 10px !important;
+}
+
+.badge-emerald {
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: #34D399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+  font-size: 10px !important;
+}
+
 .feature-card-title {
   font-family: var(--font-sans);
   font-size: 19px;
@@ -271,17 +304,26 @@
 }
 
 .feature-card-link {
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--color-accent);
   margin-top: 8px;
   transition: color 200ms ease;
   display: inline-flex;
   align-items: center;
+  gap: 6px;
+}
+
+.arrow-icon {
+  transition: transform 200ms ease;
 }
 
 .feature-card-link:hover {
   color: #FFFFFF;
+}
+
+.feature-card-link:hover .arrow-icon {
+  transform: translateX(4px);
 }
 
 /* Interactive Platform Demo Preview Section */
@@ -412,5 +454,55 @@
   background: var(--color-elevated);
   border-left: 3px solid var(--color-accent);
   font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+/* Bottom CTA Banner */
+.cta-banner-section {
+  margin-top: 40px;
+  margin-bottom: 60px;
+}
+
+.cta-banner-card {
+  background: linear-gradient(135deg, rgba(24, 29, 34, 0.9) 0%, rgba(18, 22, 26, 0.95) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 40px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-banner-card::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(circle at 90% 50%, rgba(217, 225, 232, 0.05), transparent 50%);
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .cta-banner-card {
+    flex-direction: column;
+    text-align: center;
+    padding: 32px 24px;
+  }
+}
+
+.cta-title {
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  margin-bottom: 8px;
+}
+
+.cta-desc {
+  font-size: 15px;
   color: var(--color-text-secondary);
 }
