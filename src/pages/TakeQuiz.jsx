@@ -27,7 +27,21 @@ export default function TakeQuiz() {
     return () => clearInterval(timer);
   }, []);
 
-  if (!quiz) return null;
+  if (!quiz) {
+    return (
+      <div className="app-shell">
+        <Navbar />
+        <main className="app-content container">
+          <div className="card empty-state">
+            <p>Quiz not found.</p>
+            <button className="btn btn-primary btn-sm" onClick={() => navigate("/student/dashboard")}>
+              Return to Dashboard
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   const currentQ = quiz.questions[currentIdx];
   const isLastQuestion = currentIdx === quiz.questions.length - 1;
@@ -56,7 +70,8 @@ export default function TakeQuiz() {
       correctCount: correct,
       date: new Date().toLocaleString(),
       answers: userAnswers,
-      studentCode: user?.code || "STU-9482"
+      studentCode: user?.code || "STU-9482",
+      studentName: user?.name || "Jordan Lee"
     };
 
     addAttempt(newAttempt);
@@ -76,7 +91,9 @@ export default function TakeQuiz() {
         <div className="quiz-container">
           <div className="quiz-header">
             <div>
-              <span className="badge badge-accent">Quiz Code: {quiz.code}</span>
+              <span className="badge badge-accent" style={{ fontFamily: "var(--font-mono)" }}>
+                Quiz Code: {quiz.code}
+              </span>
               <h2 style={{ fontSize: "18px", marginTop: "4px" }}>{quiz.title}</h2>
             </div>
             <div className="quiz-timer">

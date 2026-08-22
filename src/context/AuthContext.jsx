@@ -1,4 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import {
+  apiFetchQuizzes,
+  apiCreateQuiz,
+  apiUpdateQuiz,
+  apiSubmitAttempt,
+  apiFetchAttempts,
+} from "../api";
 
 const AuthContext = createContext();
 
@@ -8,8 +15,10 @@ const MOCK_QUIZZES = [
     code: "REACT2024",
     title: "React Fundamentals & State Architecture",
     description: "Assess knowledge on hooks, virtual DOM, component lifecycles, and context API.",
-    timeLimit: 15, // minutes
+    difficulty: "Medium",
+    timeLimit: 15,
     createdDate: "2026-08-20",
+    assigned: true,
     questionsCount: 4,
     questions: [
       {
@@ -67,8 +76,10 @@ const MOCK_QUIZZES = [
     code: "PYTHON301",
     title: "Advanced Data Structures & Algorithms in Python",
     description: "Deep dive into time complexity, memory allocation, and custom data structures.",
+    difficulty: "Tough",
     timeLimit: 20,
     createdDate: "2026-08-21",
+    assigned: true,
     questionsCount: 3,
     questions: [
       {
@@ -111,14 +122,15 @@ const INITIAL_ATTEMPTS = [
     correctCount: 3,
     date: "2026-08-22 10:30 AM",
     answers: { q1: 1, q2: 1, q3: 0, q4: 1 },
-    studentCode: "STU-9482"
+    studentCode: "STU-9482",
+    studentName: "Jordan Lee"
   }
 ];
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem("quest_user");
-    return saved ? JSON.parse(saved) : { name: "Alex Morgan", role: "teacher", code: "TCH-5510", email: "teacher@quest.edu" };
+    return saved ? JSON.parse(saved) : { name: "Prof. Alex Morgan", role: "teacher", code: "TCH-5510", email: "teacher@quest.edu" };
   });
 
   const [quizzes, setQuizzes] = useState(() => {
@@ -131,8 +143,27 @@ export function AuthProvider({ children }) {
     return saved ? JSON.parse(saved) : INITIAL_ATTEMPTS;
   });
 
+  // Fetch initial data from Django backend if available
   useEffect(() => {
-    localStorage.setItem("quest_user", JSON.stringify(user));
+    async function initFromBackend() {
+      const backendQuizzes = await apiFetchQuizzes();
+      if (backendQuizzes && Array.isArray(backendQuizzes) && backendQuizzes.length > 0) {
+        setQuizzes(backendQuizzes);
+      }
+      const backendAttempts = await apiFetchAttempts();
+      if (backendAttempts && Array.isArray(backendAttempts) && backendAttempts.length > 0) {
+        setAttempts(backendAttempts);
+      }
+    }
+    initFromBackend();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem("quest_user", JSON.stringify(user));
+    } else {
+      localStorage.removeItem("quest_user");
+    }
   }, [user]);
 
   useEffect(() => {
@@ -143,7 +174,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem("quest_attempts", JSON.stringify(attempts));
   }, [attempts]);
 
-  const loginAsTeacher = (email = "teacher@quest.edu", name = "Prof. Morgan") => {
+  const loginAsTeacher = (email = "teacher@quest.edu", name = "Prof. Alex Morgan") => {
     const u = { name, role: "teacher", code: "TCH-5510", email };
     setUser(u);
     return u;
@@ -174,12 +205,21 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const addQuiz = (newQuiz) => {
+  const addQuiz = async (newQuiz) => {
     setQuizzes((prev) => [newQuiz, ...prev]);
+    await apiCreateQuiz(newQuiz);
   };
 
-  const addAttempt = (attempt) => {
+  const updateQuiz = async (quizId, updatedFields) => {
+    setQuizzes((prev) =>
+      prev.map((q) => (q.id === quizId ? { ...q, ...updatedFields } : q))
+    );
+    await apiUpdateQuiz(quizId, updatedFields);
+  };
+
+  const addAttempt = async (attempt) => {
     setAttempts((prev) => [attempt, ...prev]);
+    await apiSubmitAttempt(attempt);
   };
 
   return (
@@ -194,6 +234,7 @@ export function AuthProvider({ children }) {
         logout,
         switchRole,
         addQuiz,
+        updateQuiz,
         addAttempt
       }}
     >
