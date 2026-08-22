@@ -6,13 +6,10 @@
 const DJANGO_BACKEND_URL = "https://roman-jolly-operable.ngrok-free.dev";
 
 const getBaseUrl = () => {
-  // In local Vite development, use '/QUEST' to route through Vite's dev server proxy (eliminating all CORS errors)
   if (import.meta.env.DEV) {
     return "/QUEST";
   }
-
-  // In production, use configured environment variable or direct ngrok URL
-  let base = import.meta.env.VITE_API_BASE_URL;
+  let base = import.meta.env.VITE_API_BASE_URL || DJANGO_BACKEND_URL;
   if (!base || base === "" || base === "/" || base === "/QUEST") {
     base = DJANGO_BACKEND_URL;
   }
@@ -49,13 +46,15 @@ function getCsrfToken() {
  */
 export async function apiRequest(endpoint, options = {}) {
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-  const url = `${API_BASE_URL}${cleanEndpoint}`;
+  
+  // Use query parameter to bypass ngrok browser warning without triggering custom header CORS preflight
+  const separator = cleanEndpoint.includes("?") ? "&" : "?";
+  const url = `${API_BASE_URL}${cleanEndpoint}${separator}ngrok-skip-browser-warning=true`;
 
   const isFormData = options.body instanceof FormData;
   const csrfToken = getCsrfToken();
 
   const headers = {
-    "ngrok-skip-browser-warning": "true",
     ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
     ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers || {})
@@ -63,7 +62,7 @@ export async function apiRequest(endpoint, options = {}) {
 
   const config = {
     method: options.method || "GET",
-    credentials: "include", // Session cookie support
+    credentials: "include",
     headers,
     ...options
   };
