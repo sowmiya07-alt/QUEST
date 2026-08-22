@@ -110,7 +110,11 @@ export default function TeacherDashboard() {
             <tbody>
               {quizzes.length === 0 ? (
                 <tr>
+<<<<<<< HEAD
                   <td colSpan="6" style={{ textAlign: "center", color: "var(--color-text-muted)", padding: "32px" }}>
+=======
+                  <td colSpan="6" style={{ textAlign: "center", color: "var(--color-text-muted)" }}>
+>>>>>>> origin/pr/1/head
                     No quizzes created yet. Click "Generate Quiz" to get started.
                   </td>
                 </tr>
