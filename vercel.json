@@ -2,7 +2,11 @@
   "rewrites": [
     {
       "source": "/QUEST/:path*",
-      "destination": "https://roman-jolly-operable.ngrok-free.dev/QUEST/:path*"
+      "destination": "/api/QUEST/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
     },
     {
       "source": "/(.*)",
