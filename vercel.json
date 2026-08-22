@@ -1,15 +1,11 @@
 {
   "rewrites": [
     {
-      "source": "/QUEST/:match*",
-      "destination": "/api/proxy?match=:match*"
+      "source": "/QUEST/:path*",
+      "destination": "https://roman-jolly-operable.ngrok-free.dev/QUEST/:path*"
     },
     {
-      "source": "/api/:match*",
-      "destination": "/api/proxy?match=:match*"
-    },
-    {
-      "source": "/((?!api|QUEST).*)",
+      "source": "/:path((?!QUEST).*)",
       "destination": "/index.html"
     }
   ]
