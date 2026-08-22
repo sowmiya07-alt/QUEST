@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { studentService } from "../services/studentService";
+import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 
 export default function JoinQuiz() {
@@ -9,33 +9,24 @@ export default function JoinQuiz() {
   const [loading, setLoading] = useState(false);
   const [joinedQuiz, setJoinedQuiz] = useState(null);
   const navigate = useNavigate();
+  const { quizzes } = useAuth();
 
-  const handleJoin = async (e) => {
+  const handleJoin = (e) => {
     e.preventDefault();
     setError("");
     const trimmed = code.trim().toUpperCase();
     if (!trimmed) return;
 
     setLoading(true);
-    try {
-      const res = await studentService.joinQuiz({ quiz_code: trimmed });
-      const quizId = res?.quiz_id || res?.id || res?.quiz?.id;
-      if (quizId) {
-        setJoinedQuiz({
-          id: quizId,
-          title: res?.title || res?.quiz?.title || "Assessment Ready",
-          description: res?.description || res?.quiz?.description || "Ready to begin assessment.",
-          time_limit: res?.time_limit || res?.quiz?.time_limit || 15
-        });
-      } else {
-        setError("Quiz found, but ID was missing. Please try again.");
-      }
-    } catch (err) {
-      console.error("[JoinQuiz] Error joining quiz:", err);
-      setError(err.message || "Quiz access code not found or assessment is currently closed.");
-    } finally {
-      setLoading(false);
+    const match = (quizzes || []).find(
+      (q) => String(q.code || q.quiz_code || "").toUpperCase() === trimmed
+    );
+    if (match) {
+      setJoinedQuiz(match);
+    } else {
+      setError(`No active assessment found with code "${trimmed}". Please check the code and try again.`);
     }
+    setLoading(false);
   };
 
   return (
@@ -57,7 +48,7 @@ export default function JoinQuiz() {
               </div>
               <h2 style={{ fontSize: "20px", marginBottom: "8px" }}>{joinedQuiz.title}</h2>
               <p style={{ color: "var(--color-text-secondary)", fontSize: "14px", marginBottom: "16px" }}>
-                {joinedQuiz.description}
+                {joinedQuiz.description || "Ready to start assessment."}
               </p>
               <button
                 className="btn btn-primary btn-full btn-lg"
@@ -78,7 +69,7 @@ export default function JoinQuiz() {
                     setCode(e.target.value);
                     setError("");
                   }}
-                  placeholder="e.g. DB82KP"
+                  placeholder="e.g. QUIZ-9081"
                   style={{ textTransform: "uppercase", fontFamily: "var(--font-mono)", fontSize: "18px", textAlign: "center", letterSpacing: "0.1em" }}
                   required
                   autoFocus

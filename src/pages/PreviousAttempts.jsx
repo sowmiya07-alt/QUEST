@@ -1,32 +1,22 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { studentService } from "../services/studentService";
+import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 
 export default function PreviousAttempts() {
   const navigate = useNavigate();
+  const { attempts: localAttempts } = useAuth();
   const [attempts, setAttempts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchAttempts = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const res = await studentService.getDashboard();
-      const list = res?.previous_attempts || res?.attempts || [];
-      setAttempts(list);
-    } catch (err) {
-      console.error("[PreviousAttempts] Error fetching attempts:", err);
-      setError(err.message || "Failed to load previous attempts.");
-    } finally {
-      setLoading(false);
-    }
+  const fetchAttempts = () => {
+    setAttempts(localAttempts || []);
   };
 
   useEffect(() => {
     fetchAttempts();
-  }, []);
+  }, [localAttempts]);
 
   return (
     <div className="app-shell">

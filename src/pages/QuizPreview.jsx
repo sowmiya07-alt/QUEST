@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { quizService } from "../services/quizService";
+import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 
 export default function QuizPreview() {
   const { quizId } = useParams();
   const navigate = useNavigate();
+  const { quizzes, deleteQuiz } = useAuth();
 
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -14,58 +15,52 @@ export default function QuizPreview() {
   const [copiedCodeToast, setCopiedCodeToast] = useState(false);
   const [actionSuccessToast, setActionSuccessToast] = useState("");
 
-  const fetchQuizPreview = async () => {
-    if (!quizId) return;
-    try {
-      setLoading(true);
-      setError("");
-      const res = await quizService.getQuizPreview(quizId);
-      const quizData = res?.quiz || res?.data || res;
-      setQuiz(quizData);
-    } catch (err) {
-      console.error("[QuizPreview] Error fetching preview:", err);
-      setError(err.message || "Failed to load quiz preview.");
-    } finally {
-      setLoading(false);
+  // Edit Mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDifficulty, setEditDifficulty] = useState("Medium");
+  const [editTimeLimit, setEditTimeLimit] = useState(15);
+
+  const handleDeleteQuiz = () => {
+    if (window.confirm(`Are you sure you want to delete quiz "${quiz?.title || "Assessment"}"?`)) {
+      deleteQuiz(quizId);
+      navigate("/staff/dashboard");
     }
+  };
+
+  const fetchQuizPreview = () => {
+    if (!quizId) return;
+    setLoading(true);
+    setError("");
+    const match = (quizzes || []).find(q => String(q.id) === String(quizId) || String(q.quiz_id) === String(quizId));
+    if (match) {
+      setQuiz(match);
+    } else {
+      setError("Quiz not found.");
+    }
+    setLoading(false);
   };
 
   useEffect(() => {
     fetchQuizPreview();
-  }, [quizId]);
+  }, [quizId, quizzes]);
 
-  const handleActivate = async () => {
-    if (!quizId) return;
-    try {
-      setActionLoading(true);
-      setError("");
-      const res = await quizService.activateQuiz(quizId);
-      setActionSuccessToast("✔ Quiz successfully activated for students!");
-      setTimeout(() => setActionSuccessToast(""), 3000);
-      await fetchQuizPreview();
-    } catch (err) {
-      console.error("[QuizPreview] Error activating quiz:", err);
-      setError(err.message || "Failed to activate quiz.");
-    } finally {
-      setActionLoading(false);
-    }
+  const handleActivate = () => {
+    if (!quiz) return;
+    quiz.status = "ACTIVE";
+    quiz.assigned = true;
+    setQuiz({ ...quiz, status: "ACTIVE", assigned: true });
+    setActionSuccessToast("✔ Quiz activated & assigned for student attempts!");
+    setTimeout(() => setActionSuccessToast(""), 3000);
   };
 
-  const handleClose = async () => {
-    if (!quizId) return;
-    try {
-      setActionLoading(true);
-      setError("");
-      const res = await quizService.closeQuiz(quizId);
-      setActionSuccessToast("✔ Quiz closed. No further student attempts allowed.");
-      setTimeout(() => setActionSuccessToast(""), 3000);
-      await fetchQuizPreview();
-    } catch (err) {
-      console.error("[QuizPreview] Error closing quiz:", err);
-      setError(err.message || "Failed to close quiz.");
-    } finally {
-      setActionLoading(false);
-    }
+  const handleClose = () => {
+    if (!quiz) return;
+    quiz.status = "CLOSED";
+    quiz.assigned = false;
+    setQuiz({ ...quiz, status: "CLOSED", assigned: false });
+    setActionSuccessToast("✔ Quiz closed.");
+    setTimeout(() => setActionSuccessToast(""), 3000);
   };
 
   const handleCopyReferenceCode = () => {
@@ -75,6 +70,47 @@ export default function QuizPreview() {
       setCopiedCodeToast(true);
       setTimeout(() => setCopiedCodeToast(false), 2000);
     }
+  };
+
+  const startEditing = () => {
+    if (quiz) {
+      setEditTitle(quiz.title || "");
+      setEditDifficulty(quiz.difficulty || "Medium");
+      setEditTimeLimit(quiz.timeLimit || quiz.time_limit || 15);
+      setIsEditing(true);
+    }
+  };
+
+  const handleSaveEdit = () => {
+    if (!editTitle.trim()) return;
+    const updated = {
+      ...quiz,
+      title: editTitle.trim(),
+      difficulty: editDifficulty,
+      timeLimit: parseInt(editTimeLimit, 10) || 15,
+      time_limit: parseInt(editTimeLimit, 10) || 15
+    };
+    setQuiz(updated);
+    const matchInLocal = (quizzes || []).find(q => String(q.id) === String(quizId));
+    if (matchInLocal) {
+      matchInLocal.title = updated.title;
+      matchInLocal.difficulty = updated.difficulty;
+      matchInLocal.timeLimit = updated.timeLimit;
+    }
+    setIsEditing(false);
+    setActionSuccessToast("✔ Quiz details updated successfully!");
+    setTimeout(() => setActionSuccessToast(""), 3000);
+  };
+
+  const handleDownloadQuiz = () => {
+    if (!quiz) return;
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(quiz, null, 2));
+    const anchor = document.createElement("a");
+    anchor.setAttribute("href", dataStr);
+    anchor.setAttribute("download", `${(quiz.title || "quiz").replace(/[^a-z0-9]/gi, "_")}_spec.json`);
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
   };
 
   // Helper to normalize questions array
@@ -172,24 +208,77 @@ export default function QuizPreview() {
               <span className={`badge ${isQuizActive ? "badge-success" : isQuizClosed ? "badge-danger" : "badge-neutral"}`}>
                 ● {quiz.status || (isQuizActive ? "ACTIVE" : "DRAFT")}
               </span>
-              {quiz.generation_mode && (
-                <span className="badge badge-neutral" style={{ fontSize: "11px" }}>
-                  Mode: {quiz.generation_mode}
-                </span>
-              )}
             </div>
-            <h1 style={{ fontSize: "28px" }}>{quiz.title}</h1>
-            <p style={{ color: "var(--color-text-secondary)", fontSize: "14px", marginTop: "4px" }}>
-              {quiz.description || "Review questions, manage active status, and share reference code with students."}
-            </p>
+
+            {isEditing ? (
+              <div className="card" style={{ padding: "16px", marginTop: "8px", maxWidth: "500px" }}>
+                <div className="form-group" style={{ marginBottom: "10px" }}>
+                  <label className="label">Quiz Title</label>
+                  <input
+                    className="input"
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                  />
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "12px" }}>
+                  <div>
+                    <label className="label">Difficulty</label>
+                    <select
+                      className="input"
+                      value={editDifficulty}
+                      onChange={(e) => setEditDifficulty(e.target.value)}
+                    >
+                      <option value="Easy">Easy</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Tough">Tough</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Time Limit (mins)</label>
+                    <input
+                      className="input"
+                      type="number"
+                      value={editTimeLimit}
+                      onChange={(e) => setEditTimeLimit(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button className="btn btn-primary btn-sm" onClick={handleSaveEdit}>
+                    Save Changes
+                  </button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => setIsEditing(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <h1 style={{ fontSize: "28px" }}>{quiz.title}</h1>
+                <p style={{ color: "var(--color-text-secondary)", fontSize: "14px", marginTop: "4px" }}>
+                  {quiz.description || "Review questions, manage active status, and share reference code with students."}
+                </p>
+              </>
+            )}
           </div>
 
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
             {quizCode && quizCode !== "DRAFT" && (
               <button className="btn btn-secondary btn-md" onClick={handleCopyReferenceCode}>
                 {copiedCodeToast ? "✓ Code Copied!" : `📋 Copy Code (${quizCode})`}
               </button>
             )}
+
+            {!isEditing && (
+              <button className="btn btn-secondary btn-md" onClick={startEditing}>
+                ✏️ Edit Quiz
+              </button>
+            )}
+
+            <button className="btn btn-secondary btn-md" onClick={handleDownloadQuiz}>
+              📥 Download Spec
+            </button>
 
             {!isQuizActive && !isQuizClosed && (
               <button
@@ -197,7 +286,7 @@ export default function QuizPreview() {
                 onClick={handleActivate}
                 disabled={actionLoading}
               >
-                {actionLoading ? "Activating..." : "⚡ Activate Quiz"}
+                {actionLoading ? "Assigning..." : "⚡ Assign Quiz"}
               </button>
             )}
 
@@ -214,6 +303,10 @@ export default function QuizPreview() {
             <Link to={`/staff/quiz/${quizId}/results`} className="btn btn-secondary btn-md">
               📊 View Results
             </Link>
+
+            <button className="btn btn-ghost btn-md" style={{ color: "#ff4d4f", borderColor: "rgba(255,77,79,0.3)" }} onClick={handleDeleteQuiz}>
+              🗑️ Delete Quiz
+            </button>
           </div>
         </div>
 

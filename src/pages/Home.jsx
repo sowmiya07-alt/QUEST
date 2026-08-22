@@ -29,33 +29,16 @@ export default function Home() {
             QUEST empowers educators with AI-driven specification tools and offers students seamless, instant quiz evaluation with real-time feedback.
           </p>
 
-          <div className="hero-actions">
-            {user ? (
-              <>
-                <Link
-                  to={isStaff ? "/staff/dashboard" : "/student/dashboard"}
-                  className="btn btn-primary btn-lg hero-btn-primary"
-                >
-                  Go to {isStaff ? "Faculty Console" : "Student Portal"} →
-                </Link>
-                <Link
-                  to={isStaff ? "/staff/quiz/create/terminal" : "/student/join"}
-                  className="btn btn-secondary btn-lg"
-                >
-                  {isStaff ? "💻 Launch AI Terminal" : "🔑 Join Quiz with Code"}
-                </Link>
-              </>
-            ) : (
-              <>
-                <Link to="/student/login" className="btn btn-primary btn-lg hero-btn-primary">
-                  Student Portal →
-                </Link>
-                <Link to="/staff/login" className="btn btn-secondary btn-lg">
-                  Staff / Faculty Portal →
-                </Link>
-              </>
-            )}
-          </div>
+          {user && (
+            <div className="hero-actions">
+              <Link
+                to={isStaff ? "/staff/dashboard" : "/student/dashboard"}
+                className="btn btn-primary btn-lg hero-btn-primary"
+              >
+                Go to {isStaff ? "Faculty Console" : "Student Dashboard"} ({user.name}) →
+              </Link>
+            </div>
+          )}
         </section>
 
         {/* Feature Cards Grid */}
@@ -110,8 +93,8 @@ export default function Home() {
               <p className="feature-card-desc">
                 Distinct security boundaries for students and staff with unique access codes and state management.
               </p>
-              <Link to="/staff/login" className="feature-card-link">
-                <span>Faculty Access Control</span> <span className="arrow-icon">→</span>
+              <Link to="/student/login" className="feature-card-link">
+                <span>Access Control</span> <span className="arrow-icon">→</span>
               </Link>
             </div>
           </div>

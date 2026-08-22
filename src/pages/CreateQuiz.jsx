@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { quizService } from "../services/quizService";
+import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 
 export default function CreateQuiz() {
   const navigate = useNavigate();
+  const { addQuiz } = useAuth();
 
   // Form State
   const [title, setTitle] = useState("");
@@ -34,60 +35,43 @@ export default function CreateQuiz() {
     setError("");
     setIsProcessing(true);
 
-    try {
-      let createdQuizId = null;
-
-      if (file) {
-        // Mode 1: FormData with Reference Material File
-        setLoadingStep("Creating assessment record with material...");
-        const formData = new FormData();
-        formData.append("title", title.trim());
-        formData.append("topics", topics.trim() || title.trim());
-        formData.append("difficulty", difficulty);
-        formData.append("question_count", questionsCount);
-        formData.append("time_limit", timeLimit);
-        formData.append("reference_file", file);
-
-        const createRes = await quizService.createQuiz(formData);
-        createdQuizId = createRes?.quiz_id || createRes?.id || createRes?.quiz?.id;
-
-        if (!createdQuizId) {
-          throw new Error("Quiz created, but no quiz ID was returned by server.");
+    const generatedCode = "QUIZ-" + Math.floor(1000 + Math.random() * 9000);
+    const newLocalQuiz = {
+      id: `q-${Date.now()}`,
+      code: generatedCode,
+      title: title.trim(),
+      topics: topics.trim() || title.trim(),
+      difficulty: difficulty,
+      timeLimit: parseInt(timeLimit, 10) || 15,
+      createdDate: new Date().toISOString().split("T")[0],
+      assigned: true,
+      status: file ? "ACTIVE" : "DRAFT",
+      questionsCount: parseInt(questionsCount, 10) || 5,
+      questions: file ? [
+        {
+          id: "q1",
+          question: `Sample question generated from uploaded document: ${file.name} (Q1)`,
+          options: ["Core structural concept", "Secondary baseline", "Alternative model", "Optimized execution"],
+          correctIndex: 0,
+          explanation: "Generated based on content extracted from uploaded material."
+        },
+        {
+          id: "q2",
+          question: `Sample question generated from uploaded document: ${file.name} (Q2)`,
+          options: ["Boundary assertion", "State transformation", "Asynchronous loop", "Buffer queue"],
+          correctIndex: 1,
+          explanation: "Generated based on content extracted from uploaded material."
         }
+      ] : []
+    };
 
-        // Trigger material processing
-        setLoadingStep("Reading material...");
-        await new Promise((r) => setTimeout(r, 600));
-        setLoadingStep("Extracting content & generating quiz...");
-        await quizService.generateMaterialQuiz(createdQuizId);
+    addQuiz(newLocalQuiz);
+    setIsProcessing(false);
 
-        setLoadingStep("Validating questions & finalizing...");
-        await new Promise((r) => setTimeout(r, 400));
-        navigate(`/staff/quiz/${createdQuizId}/preview`);
-      } else {
-        // Mode 2: JSON Assessment without material -> Navigates to AI Specification Terminal
-        setLoadingStep("Creating assessment record...");
-        const payload = {
-          title: title.trim(),
-          topics: topics.trim() || title.trim(),
-          difficulty: difficulty,
-          question_count: parseInt(questionsCount, 10) || 5,
-          time_limit: parseInt(timeLimit, 10) || 15
-        };
-
-        const createRes = await quizService.createQuiz(payload);
-        createdQuizId = createRes?.quiz_id || createRes?.id || createRes?.quiz?.id;
-
-        if (createdQuizId) {
-          navigate(`/staff/quiz/${createdQuizId}/terminal`);
-        } else {
-          navigate("/staff/dashboard");
-        }
-      }
-    } catch (err) {
-      console.error("[CreateQuiz] Error creating assessment:", err);
-      setError(err.message || "Failed to create quiz assessment. Please try again.");
-      setIsProcessing(false);
+    if (file) {
+      navigate(`/staff/quiz/${newLocalQuiz.id}/preview`);
+    } else {
+      navigate(`/staff/quiz/${newLocalQuiz.id}/terminal`);
     }
   };
 
@@ -271,7 +255,7 @@ export default function CreateQuiz() {
                 </span>
               </div>
               <button type="submit" className="btn btn-primary btn-lg" disabled={isProcessing}>
-                {file ? "Generate from Material →" : "Proceed to AI Specification →"}
+                {file ? "Generate from Material →" : "Generate AI Specification →"}
               </button>
             </div>
           </form>

@@ -1,34 +1,31 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { quizService } from "../services/quizService";
+import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 
 export default function QuizResults() {
   const { quizId } = useParams();
   const navigate = useNavigate();
+  const { quizzes, attempts: ctxAttempts } = useAuth();
 
   const [resultsData, setResultsData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchResults = async () => {
+  const fetchResults = () => {
     if (!quizId) return;
-    try {
-      setLoading(true);
-      setError("");
-      const res = await quizService.getResults(quizId);
-      setResultsData(res);
-    } catch (err) {
-      console.error("[QuizResults] Error fetching results:", err);
-      setError(err.message || "Failed to load quiz scorecards.");
-    } finally {
-      setLoading(false);
-    }
+    const matchQuiz = (quizzes || []).find(q => String(q.id) === String(quizId));
+    const filteredAttempts = (ctxAttempts || []).filter(a => String(a.quizId) === String(quizId) || String(a.quiz_id) === String(quizId));
+    setResultsData({
+      quiz_title: matchQuiz?.title || `Quiz Assessment #${quizId}`,
+      quiz_code: matchQuiz?.code || "",
+      results: filteredAttempts
+    });
   };
 
   useEffect(() => {
     fetchResults();
-  }, [quizId]);
+  }, [quizId, quizzes, ctxAttempts]);
 
   const quizTitle = resultsData?.quiz_title || resultsData?.title || `Quiz Assessment #${quizId}`;
   const quizCode = resultsData?.quiz_code || resultsData?.code || "";

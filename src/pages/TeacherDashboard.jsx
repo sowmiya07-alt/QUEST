@@ -1,34 +1,36 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { staffService } from "../services/staffService";
 import Navbar from "../components/Navbar";
 
 export default function TeacherDashboard() {
-  const { user } = useAuth();
+  const { user, quizzes: ctxQuizzes, attempts: ctxAttempts, deleteQuiz } = useAuth();
   const navigate = useNavigate();
 
   const [dashboardData, setDashboardData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const fetchDashboard = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await staffService.getDashboard();
-      setDashboardData(res);
-    } catch (err) {
-      console.error("[TeacherDashboard] Error fetching staff dashboard:", err);
-      setError(err.message || "Failed to load dashboard data.");
-    } finally {
-      setLoading(false);
-    }
+  const fetchDashboard = () => {
+    const fallbackQuizzes = ctxQuizzes || [];
+    const fallbackAttempts = ctxAttempts || [];
+    const activeCount = fallbackQuizzes.filter(q => q.status === "ACTIVE" || q.assigned).length;
+    const avgScore = fallbackAttempts.length
+      ? Math.round(fallbackAttempts.reduce((acc, curr) => acc + (curr.score ?? 0), 0) / fallbackAttempts.length)
+      : 0;
+
+    setDashboardData({
+      quizzes: fallbackQuizzes,
+      attempts: fallbackAttempts,
+      total_quizzes: fallbackQuizzes.length,
+      active_quizzes: activeCount,
+      total_attempts: fallbackAttempts.length,
+      average_score: avgScore
+    });
   };
 
   useEffect(() => {
     fetchDashboard();
-  }, []);
+  }, [ctxQuizzes, ctxAttempts]);
 
   const totalQuizzes = dashboardData?.total_quizzes ?? dashboardData?.quizzes?.length ?? 0;
   const activeQuizzes = dashboardData?.active_quizzes ?? dashboardData?.active_count ?? (dashboardData?.quizzes ? dashboardData.quizzes.filter(q => q.status === "ACTIVE" || q.assigned).length : 0);
@@ -50,9 +52,6 @@ export default function TeacherDashboard() {
             </p>
           </div>
           <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-            <Link to="/staff/quiz/create/terminal" className="btn btn-secondary btn-md">
-              💻 AI Spec Terminal
-            </Link>
             <Link to="/staff/quiz/create" className="btn btn-primary btn-md">
               + Create Quiz
             </Link>
@@ -142,14 +141,53 @@ export default function TeacherDashboard() {
                       const questionCount = quiz.questions_count ?? quiz.questionsCount ?? (quiz.questions ? quiz.questions.length : 0);
                       const isQuizActive = quiz.status === "ACTIVE" || quiz.is_active || quiz.assigned;
 
+                      const handleCopyCode = () => {
+                        navigator.clipboard.writeText(quizCode);
+                        alert(`Copied quiz code ${quizCode} to clipboard!`);
+                      };
+
+                      const handleAssignQuiz = () => {
+                        quiz.status = isQuizActive ? "CLOSED" : "ACTIVE";
+                        quiz.assigned = !isQuizActive;
+                        fetchDashboard();
+                      };
+
+                      const handleDownload = () => {
+                        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(quiz, null, 2));
+                        const anchor = document.createElement("a");
+                        anchor.setAttribute("href", dataStr);
+                        anchor.setAttribute("download", `${(quiz.title || "quiz").replace(/[^a-z0-9]/gi, "_")}_spec.json`);
+                        document.body.appendChild(anchor);
+                        anchor.click();
+                        anchor.remove();
+                      };
+
+                      const handleDeleteQuiz = () => {
+                        if (window.confirm(`Are you sure you want to delete quiz "${quiz.title}" (${quizCode})?`)) {
+                          deleteQuiz(quizId);
+                          fetchDashboard();
+                        }
+                      };
+
                       return (
                         <tr key={quizId}>
                           <td>
-                            <span className="badge badge-accent" style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}>
-                              {quizCode}
-                            </span>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <span className="badge badge-accent" style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}>
+                                {quizCode}
+                              </span>
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                style={{ padding: "2px 6px", fontSize: "10px" }}
+                                onClick={handleCopyCode}
+                                title="Copy Quiz Access Code"
+                              >
+                                📋
+                              </button>
+                            </div>
                           </td>
-                          <td style={{ fontWeight: "600", maxWidth: "320px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={quiz.title}>
+                          <td style={{ fontWeight: "600", maxWidth: "240px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={quiz.title}>
                             {quiz.title}
                           </td>
                           <td>
@@ -164,19 +202,43 @@ export default function TeacherDashboard() {
                             </span>
                           </td>
                           <td>
-                            <div style={{ display: "flex", gap: "8px" }}>
+                            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
+                              <button
+                                className={`btn ${isQuizActive ? "btn-secondary" : "btn-primary"} btn-sm`}
+                                onClick={handleAssignQuiz}
+                                title={isQuizActive ? "Unassign Quiz" : "Assign Quiz to Students"}
+                              >
+                                {isQuizActive ? "Assigned ✓" : "Assign Quiz"}
+                              </button>
                               <button
                                 className="btn btn-secondary btn-sm"
                                 onClick={() => navigate(`/staff/quiz/${quizId}/preview`)}
-                                title="Verify questions and settings"
+                                title="Edit & Preview Quiz"
                               >
-                                Preview & Manage
+                                Edit / Preview
                               </button>
                               <button
-                                className="btn btn-primary btn-sm"
+                                className="btn btn-ghost btn-sm"
+                                onClick={handleDownload}
+                                title="Download Quiz Specification JSON"
+                              >
+                                📥 Download
+                              </button>
+                              <button
+                                className="btn btn-ghost btn-sm"
                                 onClick={() => navigate(`/staff/quiz/${quizId}/results`)}
+                                title="View Student Results"
                               >
                                 Score Cards
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                style={{ color: "#ff4d4f", borderColor: "rgba(255,77,79,0.3)" }}
+                                onClick={handleDeleteQuiz}
+                                title="Delete Quiz Assessment"
+                              >
+                                🗑️ Delete
                               </button>
                             </div>
                           </td>

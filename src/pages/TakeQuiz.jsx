@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { studentService } from "../services/studentService";
+import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 
 export default function TakeQuiz() {
   const { quizId } = useParams();
   const navigate = useNavigate();
+  const { user, quizzes, addAttempt } = useAuth();
 
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -29,14 +30,21 @@ export default function TakeQuiz() {
         const durationMinutes = data?.time_limit || data?.timeLimit || 15;
         setTimeLeft(durationMinutes * 60);
       } catch (err) {
-        console.error("[TakeQuiz] Error loading quiz:", err);
-        setError(err.message || "Failed to load quiz questions.");
+        console.warn("[TakeQuiz] Backend offline. Loading quiz from local AuthContext.");
+        const match = (quizzes || []).find(q => String(q.id) === String(quizId) || String(q.quiz_id) === String(quizId));
+        if (match) {
+          setQuiz(match);
+          const durationMinutes = match?.time_limit || match?.timeLimit || 15;
+          setTimeLeft(durationMinutes * 60);
+        } else {
+          setError(err.message || "Failed to load quiz questions.");
+        }
       } finally {
         setLoading(false);
       }
     }
     loadQuiz();
-  }, [quizId]);
+  }, [quizId, quizzes]);
 
   // Countdown timer
   useEffect(() => {
@@ -78,36 +86,65 @@ export default function TakeQuiz() {
       return {
         id: qId,
         question: qText,
-        options
+        options,
+        rawQuestion: q
       };
     });
   };
 
-  const handleSubmitQuiz = async () => {
-    if (submitting) return;
+  const handleSubmit = (e) => {
+    if (e) e.preventDefault();
     setSubmitting(true);
-    setError("");
 
-    try {
-      // Structure answers payload matching Django expectations
-      const payload = {
-        answers: userAnswers
-      };
+    const normQs = normalizeQuestions(quiz?.questions || []);
+    let correctCount = 0;
 
-      const res = await studentService.submitQuiz(quizId, payload);
-      const attemptId = res?.attempt_id || res?.id || res?.attempt?.id;
+    const detailedAnswers = normQs.map((q) => {
+      const selectedKey = userAnswers[q.id];
+      let isCorrect = false;
 
-      if (attemptId) {
-        navigate(`/student/result/${attemptId}`);
-      } else {
-        // Fallback to dashboard if attempt ID missing
-        navigate("/student/dashboard");
+      const raw = q.rawQuestion || {};
+      const correctIndex = raw.correctIndex ?? 0;
+      const correctKey = `option_${String.fromCharCode(97 + correctIndex)}`;
+      const correctAnswerStr = raw.correct_answer || (raw.options ? raw.options[correctIndex] : null);
+
+      if (selectedKey === correctKey || selectedKey === correctAnswerStr || selectedKey === raw.correct_answer) {
+        isCorrect = true;
+        correctCount++;
       }
-    } catch (err) {
-      console.error("[TakeQuiz] Submit error:", err);
-      setError(err.message || "Failed to submit assessment answers.");
-      setSubmitting(false);
-    }
+
+      const selectedOptionObj = q.options.find(o => o.key === selectedKey);
+      const selectedText = selectedOptionObj ? selectedOptionObj.text : (selectedKey || "Not Answered");
+      const correctText = correctAnswerStr || (q.options[correctIndex] ? q.options[correctIndex].text : "Option A");
+
+      return {
+        id: q.id,
+        question_text: q.question,
+        is_correct: isCorrect,
+        student_answer: selectedText,
+        correct_answer: correctText,
+        explanation: raw.explanation || "Diagnostic analysis generated."
+      };
+    });
+
+    const totalCount = normQs.length || 1;
+    const scorePercentage = Math.round((correctCount / totalCount) * 100);
+
+    const newAttempt = {
+      attemptId: `att-${Date.now()}`,
+      quizId: quizId,
+      quizTitle: quiz?.title || "Assessment",
+      studentCode: user?.code || "STU-8820",
+      studentName: user?.name || "Student",
+      score: scorePercentage,
+      correctCount,
+      total: totalCount,
+      answers: detailedAnswers,
+      submitted_at: new Date().toISOString().replace("T", " ").slice(0, 16)
+    };
+
+    addAttempt(newAttempt);
+    navigate(`/student/result/${newAttempt.attemptId}`);
   };
 
   const formatTime = (secs) => {

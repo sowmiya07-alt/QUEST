@@ -53,6 +53,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
+      <Route path="/login" element={<Navigate to="/student/login" replace />} />
 
       {/* Student Routes */}
       <Route path="/student/login" element={<StudentLogin />} />

@@ -1,38 +1,31 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { studentService } from "../services/studentService";
 import Navbar from "../components/Navbar";
 
 export default function StudentDashboard() {
-  const { user } = useAuth();
+  const { user, quizzes: ctxQuizzes, attempts: ctxAttempts } = useAuth();
   const navigate = useNavigate();
 
   const [dashboardData, setDashboardData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const [inputCode, setInputCode] = useState("");
   const [joinLoading, setJoinLoading] = useState(false);
   const [codeError, setCodeError] = useState("");
 
-  const fetchDashboard = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const res = await studentService.getDashboard();
-      setDashboardData(res);
-    } catch (err) {
-      console.error("[StudentDashboard] Error fetching dashboard:", err);
-      setError(err.message || "Failed to load student dashboard.");
-    } finally {
-      setLoading(false);
-    }
+  const fetchDashboard = () => {
+    setDashboardData({
+      user,
+      active_quizzes: (ctxQuizzes || []).filter(q => q.status === "ACTIVE" || q.assigned),
+      previous_attempts: ctxAttempts || []
+    });
   };
 
   useEffect(() => {
     fetchDashboard();
-  }, []);
+  }, [ctxQuizzes, ctxAttempts]);
 
   const handleJoinByCode = async (e) => {
     e.preventDefault();
@@ -46,12 +39,16 @@ export default function StudentDashboard() {
       const quizId = res?.quiz_id || res?.id || res?.quiz?.id;
       if (quizId) {
         navigate(`/student/quiz/${quizId}`);
-      } else {
-        setCodeError("Joined successfully, but quiz ID was not returned.");
+        return;
       }
     } catch (err) {
-      console.error("[StudentDashboard] Join error:", err);
-      setCodeError(err.message || "Reference code not found or quiz is not active.");
+      console.warn("[StudentDashboard] Backend offline for join code. Searching local quizzes.");
+      const localMatch = (ctxQuizzes || []).find(q => (q.code || q.quiz_code || "").toUpperCase() === trimmed);
+      if (localMatch) {
+        navigate(`/student/quiz/${localMatch.id || localMatch.quiz_id}`);
+        return;
+      }
+      setCodeError("Reference code not found or quiz is not active.");
     } finally {
       setJoinLoading(false);
     }

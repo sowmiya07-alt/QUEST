@@ -1,34 +1,29 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { studentService } from "../services/studentService";
+import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 
 export default function StudentResult() {
   const { attemptId } = useParams();
   const navigate = useNavigate();
+  const { attempts } = useAuth();
 
   const [attempt, setAttempt] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    async function fetchResult() {
+    function fetchResult() {
       if (!attemptId) return;
-      try {
-        setLoading(true);
-        setError("");
-        const res = await studentService.getAttemptResult(attemptId);
-        const data = res?.attempt || res?.data || res;
-        setAttempt(data);
-      } catch (err) {
-        console.error("[StudentResult] Error loading result:", err);
-        setError(err.message || "Failed to load attempt scorecard.");
-      } finally {
-        setLoading(false);
+      const match = (attempts || []).find(a => String(a.attemptId) === String(attemptId) || String(a.id) === String(attemptId) || String(a.attempt_id) === String(attemptId));
+      if (match) {
+        setAttempt(match);
+      } else {
+        setError("Attempt scorecard not found.");
       }
     }
     fetchResult();
-  }, [attemptId]);
+  }, [attemptId, attempts]);
 
   if (loading) {
     return (

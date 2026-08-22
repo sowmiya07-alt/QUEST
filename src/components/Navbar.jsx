@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth, getDisplayName } from "../context/AuthContext";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -8,13 +8,11 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  if (!user) return null;
+  const isTeacher = user?.role === "teacher";
+  const displayName = getDisplayName(user);
 
-  const isStaff = user.role === "staff" || user.role === "teacher";
-  const userCode = user.user_code || user.code || "USER";
-
-  const handleLogout = async () => {
-    await logout();
+  const handleLogout = () => {
+    logout();
     navigate("/");
   };
 
@@ -26,69 +24,81 @@ export default function Navbar() {
           <span>QUEST</span>
         </Link>
 
-        <nav className="navbar-links">
-          <Link
-            to={isStaff ? "/staff/dashboard" : "/student/dashboard"}
-            className={`navbar-link ${location.pathname.includes("dashboard") ? "active" : ""}`}
-          >
-            Dashboard
-          </Link>
-          {isStaff ? (
-            <>
+        {user ? (
+          <nav className="navbar-links">
+            <Link
+              to={isTeacher ? "/staff/dashboard" : "/student/dashboard"}
+              className={`navbar-link ${location.pathname.includes("dashboard") ? "active" : ""}`}
+            >
+              Dashboard
+            </Link>
+            {isTeacher ? (
               <Link
                 to="/staff/quiz/create"
                 className={`navbar-link ${location.pathname === "/staff/quiz/create" ? "active" : ""}`}
               >
                 Generate Quiz
               </Link>
-            </>
-          ) : (
-            <>
-              <Link
-                to="/student/join"
-                className={`navbar-link ${location.pathname === "/student/join" ? "active" : ""}`}
-              >
-                Join Quiz
-              </Link>
-              <Link
-                to="/student/attempts"
-                className={`navbar-link ${location.pathname === "/student/attempts" ? "active" : ""}`}
-              >
-                Previous Attempts
-              </Link>
-            </>
-          )}
-        </nav>
+            ) : (
+              <>
+                <Link
+                  to="/student/join"
+                  className={`navbar-link ${location.pathname === "/student/join" ? "active" : ""}`}
+                >
+                  Join Quiz
+                </Link>
+                <Link
+                  to="/student/attempts"
+                  className={`navbar-link ${location.pathname === "/student/attempts" ? "active" : ""}`}
+                >
+                  Previous Attempts
+                </Link>
+              </>
+            )}
+          </nav>
+        ) : (
+          <div className="navbar-links" />
+        )}
 
         <div className="navbar-right">
-          <div className="profile-menu">
-            <button
-              className="profile-trigger"
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-            >
-              <div className="profile-avatar">{user.name ? user.name[0].toUpperCase() : "U"}</div>
-              <span className="profile-code" style={{ fontWeight: "600", color: "var(--color-text-primary)" }}>
-                {user.name}
-              </span>
-            </button>
+          {user ? (
+            <div className="profile-menu">
+              <button
+                className="profile-trigger"
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+              >
+                <div className="profile-avatar">{displayName ? displayName[0].toUpperCase() : "U"}</div>
+                <span className="profile-code" style={{ fontWeight: "600", color: "var(--color-text-primary)" }}>
+                  {displayName}
+                </span>
+              </button>
 
-            {dropdownOpen && (
-              <div className="profile-dropdown" onMouseLeave={() => setDropdownOpen(false)}>
-                <div className="profile-dropdown-header">
-                  <span className="profile-name">{user.name}</span>
-                  <span className="profile-role" style={{ textTransform: "capitalize" }}>{user.role} Account</span>
-                  <span className="profile-usercode">ID: {userCode}</span>
-                  {user.email && <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{user.email}</span>}
+              {dropdownOpen && (
+                <div className="profile-dropdown" onMouseLeave={() => setDropdownOpen(false)}>
+                  <div className="profile-dropdown-header">
+                    <span className="profile-name">{displayName}</span>
+                    <span className="profile-role">{user.role?.toUpperCase()} ACCOUNT</span>
+                    <span className="profile-usercode">ID: {user.code || user.identity || user.email}</span>
+                  </div>
+                  <button
+                    className="profile-dropdown-item"
+                    onClick={handleLogout}
+                  >
+                    Sign Out
+                  </button>
                 </div>
-                <button
-                  className="profile-dropdown-item"
-                  onClick={handleLogout}
-                >
-                  Sign Out
-                </button>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+              <Link to="/student/login" className="btn btn-secondary btn-sm">
+                Sign In
+              </Link>
+              <Link to="/student/register" className="btn btn-primary btn-sm">
+                Register →
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </header>
