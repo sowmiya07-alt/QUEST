@@ -9,7 +9,7 @@ export default function Navbar() {
   const location = useLocation();
 
   const isTeacher = user?.role === "teacher";
-  const displayName = getDisplayName(user);
+  const displayName = getDisplayName(user?.name, user?.email);
 
   const handleLogout = () => {
     logout();

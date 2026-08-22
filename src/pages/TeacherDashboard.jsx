@@ -58,12 +58,7 @@ export default function TeacherDashboard() {
           </div>
         </div>
 
-        {error && (
-          <div className="form-error" style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>{error}</span>
-            <button className="btn btn-ghost btn-sm" onClick={fetchDashboard}>Retry</button>
-          </div>
-        )}
+
 
         {loading ? (
           <div className="card" style={{ padding: "48px", textAlign: "center" }}>
