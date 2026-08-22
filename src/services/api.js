@@ -1,19 +1,16 @@
 /**
  * QUEST Centralized API Client Service
  * Configured for Django Function-Based Views (FBV) backend endpoints.
- * Uses same-origin proxy (/QUEST) for both local development (Vite proxy)
- * and deployed production (Vercel edge rewrites) to eliminate CORS errors.
  */
 
+const DJANGO_BACKEND_URL = "https://roman-jolly-operable.ngrok-free.dev";
+
 const getBaseUrl = () => {
-  const envBase = import.meta.env.VITE_API_BASE_URL;
-  if (!envBase || envBase === "" || envBase === "/QUEST" || envBase === "/") {
-    return "/QUEST";
+  let base = import.meta.env.VITE_API_BASE_URL || DJANGO_BACKEND_URL;
+  if (!base || base === "" || base === "/" || base === "/QUEST") {
+    base = DJANGO_BACKEND_URL;
   }
-  let base = envBase.replace(/\/+$/, "");
-  if (!base.startsWith("http://") && !base.startsWith("https://")) {
-    return base;
-  }
+  base = base.replace(/\/+$/, "");
   if (!base.endsWith("/QUEST") && !base.includes("/QUEST/")) {
     base = `${base}/QUEST`;
   }
@@ -93,7 +90,7 @@ export async function apiRequest(endpoint, options = {}) {
             errorMessage = "Invalid request data. Please check your inputs.";
             break;
           case 401:
-            errorMessage = "Invalid credentials or session expired. Please verify your user code and password.";
+            errorMessage = "Invalid credentials or session expired. Please check your user code and password.";
             break;
           case 403:
             errorMessage = "You do not have permission to perform this action.";

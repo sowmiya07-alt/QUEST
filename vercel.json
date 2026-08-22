@@ -1,11 +1,7 @@
 {
   "rewrites": [
     {
-      "source": "/QUEST/:path*",
-      "destination": "https://roman-jolly-operable.ngrok-free.dev/QUEST/:path*"
-    },
-    {
-      "source": "/:path((?!QUEST).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
