@@ -6,7 +6,13 @@
 const DJANGO_BACKEND_URL = "https://roman-jolly-operable.ngrok-free.dev";
 
 const getBaseUrl = () => {
-  let base = import.meta.env.VITE_API_BASE_URL || DJANGO_BACKEND_URL;
+  // In local Vite development, use '/QUEST' to route through Vite's dev server proxy (eliminating all CORS errors)
+  if (import.meta.env.DEV) {
+    return "/QUEST";
+  }
+
+  // In production, use configured environment variable or direct ngrok URL
+  let base = import.meta.env.VITE_API_BASE_URL;
   if (!base || base === "" || base === "/" || base === "/QUEST") {
     base = DJANGO_BACKEND_URL;
   }
