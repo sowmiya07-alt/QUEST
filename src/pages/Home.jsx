@@ -234,20 +234,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Bottom CTA Banner Section */}
-        <section className="cta-banner-section">
-          <div className="cta-banner-card">
-            <div className="cta-banner-content">
-              <h2 className="cta-title">Ready to transform your assessment workflow?</h2>
-              <p className="cta-desc">Start building AI prompt specifications or join an assessment room immediately.</p>
-            </div>
-            <div className="cta-banner-buttons">
-              <Link to={user ? (isTeacher ? "/staff/dashboard" : "/student/dashboard") : "/student/login"} className="btn btn-primary btn-lg hero-btn-primary">
-                Get Started Now →
-              </Link>
-            </div>
-          </div>
-        </section>
       </main>
     </div>
   );
