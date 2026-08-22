@@ -1,17 +1,19 @@
 /**
  * QUEST Centralized API Client Service
  * Configured for Django Function-Based Views (FBV) backend endpoints.
+ * Uses same-origin proxy (/QUEST) for both local development (Vite proxy)
+ * and deployed production (Vercel edge rewrites) to eliminate CORS errors.
  */
 
-const DEFAULT_BACKEND_URL = "https://roman-jolly-operable.ngrok-free.dev";
-
-// Base URL resolution for both local development and deployed production environments
 const getBaseUrl = () => {
-  let base = import.meta.env.VITE_API_BASE_URL;
-  if (!base || typeof base !== "string" || !base.startsWith("http")) {
-    base = DEFAULT_BACKEND_URL;
+  const envBase = import.meta.env.VITE_API_BASE_URL;
+  if (!envBase || envBase === "" || envBase === "/QUEST" || envBase === "/") {
+    return "/QUEST";
   }
-  base = base.replace(/\/+$/, "");
+  let base = envBase.replace(/\/+$/, "");
+  if (!base.startsWith("http://") && !base.startsWith("https://")) {
+    return base;
+  }
   if (!base.endsWith("/QUEST") && !base.includes("/QUEST/")) {
     base = `${base}/QUEST`;
   }
@@ -58,7 +60,7 @@ export async function apiRequest(endpoint, options = {}) {
 
   const config = {
     method: options.method || "GET",
-    credentials: "include", // Django sessionid cookie support
+    credentials: "include", // Session cookie support
     headers,
     ...options
   };
@@ -91,7 +93,7 @@ export async function apiRequest(endpoint, options = {}) {
             errorMessage = "Invalid request data. Please check your inputs.";
             break;
           case 401:
-            errorMessage = "Your session has expired or credentials are invalid. Please log in again.";
+            errorMessage = "Invalid credentials or session expired. Please verify your user code and password.";
             break;
           case 403:
             errorMessage = "You do not have permission to perform this action.";
