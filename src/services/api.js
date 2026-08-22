@@ -3,16 +3,15 @@
  * Configured for Django Function-Based Views (FBV) backend endpoints.
  */
 
-// Base URL configured via environment variable with proxy fallback
+const DEFAULT_BACKEND_URL = "https://roman-jolly-operable.ngrok-free.dev";
+
+// Base URL resolution for both local development and deployed production environments
 const getBaseUrl = () => {
   let base = import.meta.env.VITE_API_BASE_URL;
-  if (!base || base === "" || base === "/QUEST" || base === "/") {
-    return "/QUEST";
+  if (!base || typeof base !== "string" || !base.startsWith("http")) {
+    base = DEFAULT_BACKEND_URL;
   }
   base = base.replace(/\/+$/, "");
-  if (!base.startsWith("http://") && !base.startsWith("https://")) {
-    return base;
-  }
   if (!base.endsWith("/QUEST") && !base.includes("/QUEST/")) {
     base = `${base}/QUEST`;
   }
@@ -44,7 +43,6 @@ function getCsrfToken() {
  * @returns {Promise<object>} Parsed JSON response
  */
 export async function apiRequest(endpoint, options = {}) {
-  // Ensure endpoint starts with a slash
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const url = `${API_BASE_URL}${cleanEndpoint}`;
 
@@ -60,12 +58,11 @@ export async function apiRequest(endpoint, options = {}) {
 
   const config = {
     method: options.method || "GET",
-    credentials: "include", // Essential for Django sessionid & cookies
+    credentials: "include", // Django sessionid cookie support
     headers,
     ...options
   };
 
-  // Stringify JSON body if not FormData and not already a string
   if (config.body && !isFormData && typeof config.body !== "string") {
     config.body = JSON.stringify(config.body);
   }
@@ -73,7 +70,6 @@ export async function apiRequest(endpoint, options = {}) {
   try {
     const res = await fetch(url, config);
 
-    // Parse JSON or text response
     const contentType = res.headers.get("content-type") || "";
     let data;
     if (contentType.includes("application/json")) {
@@ -123,10 +119,8 @@ export async function apiRequest(endpoint, options = {}) {
     return data;
   } catch (err) {
     if (err.status) {
-      // Re-throw formatted HTTP errors
       throw err;
     }
-    // Network / ngrok connectivity failure
     console.error(`[QUEST API Error] ${config.method} ${cleanEndpoint}:`, err);
     const networkError = new Error(
       "QUEST backend is currently unreachable. Please verify your connection or backend server status."
