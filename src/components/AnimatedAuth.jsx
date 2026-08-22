@@ -125,7 +125,7 @@ export default function AnimatedAuth({ initialMode = "login", initialRole = "tea
 
         <div className="auth-left-content">
           <Link to="/" className="auth-split-logo">
-            <span className="logo-symbol">Q</span>
+            <span className="logo-symbol">❖</span>
             <span>QUEST</span>
           </Link>
 

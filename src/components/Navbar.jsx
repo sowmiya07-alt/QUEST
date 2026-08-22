@@ -67,7 +67,9 @@ export default function Navbar() {
               onClick={() => setDropdownOpen(!dropdownOpen)}
             >
               <div className="profile-avatar">{user.name ? user.name[0].toUpperCase() : "U"}</div>
-              <span className="profile-code">{userCode}</span>
+              <span className="profile-code" style={{ fontWeight: "600", color: "var(--color-text-primary)" }}>
+                {user.name}
+              </span>
             </button>
 
             {dropdownOpen && (
