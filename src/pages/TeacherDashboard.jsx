@@ -16,16 +16,20 @@ export default function TeacherDashboard() {
     <div className="app-shell">
       <Navbar />
       <main className="app-content container">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+        {/* Top Header */}
+        <div className="dashboard-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px", flexWrap: "wrap", gap: "16px" }}>
           <div>
-            <h1 style={{ fontSize: "28px" }}>Teacher Console — {user?.name}</h1>
-            <p style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>
-              Generate assessments, verify & assign quizzes, and inspect live student score cards.
+            <h1 style={{ fontSize: "28px", fontWeight: "800", letterSpacing: "-0.02em" }}>Faculty Console</h1>
+            <p style={{ color: "var(--color-text-secondary)", fontSize: "14px", marginTop: "4px" }}>
+              Welcome, <strong style={{ color: "var(--color-text-primary)" }}>{user?.name}</strong> • Manage assessments, AI specs, & student scorecards.
             </p>
           </div>
-          <div style={{ display: "flex", gap: "12px" }}>
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+            <Link to="/staff/quiz/create/terminal" className="btn btn-secondary btn-md">
+              💻 AI Spec Terminal
+            </Link>
             <Link to="/staff/quiz/create" className="btn btn-primary btn-md">
-              ⚡ Generate Quiz
+              + Create Quiz
             </Link>
           </div>
         </div>
@@ -33,25 +37,36 @@ export default function TeacherDashboard() {
         {/* Overview Stats */}
         <div className="stat-grid">
           <div className="stat-card">
+            <div className="stat-card-header">
+              <span className="stat-label">Active Quizzes</span>
+              <span className="stat-icon">📚</span>
+            </div>
             <span className="stat-value">{quizzes.length}</span>
-            <span className="stat-label">Active Quizzes</span>
           </div>
+
           <div className="stat-card">
+            <div className="stat-card-header">
+              <span className="stat-label">Total Submissions</span>
+              <span className="stat-icon">📥</span>
+            </div>
             <span className="stat-value">{totalSubmissions}</span>
-            <span className="stat-label">Total Student Submissions</span>
           </div>
+
           <div className="stat-card">
+            <div className="stat-card-header">
+              <span className="stat-label">Class Average Score</span>
+              <span className="stat-icon">📈</span>
+            </div>
             <span className="stat-value">{avgClassScore}%</span>
-            <span className="stat-label">Class Average Score</span>
           </div>
         </div>
 
         {/* Managed Quizzes Section */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "32px", marginBottom: "16px" }}>
-          <h2 style={{ fontSize: "20px" }}>Managed Quizzes</h2>
-          <Link to="/staff/quiz/create" className="btn btn-secondary btn-sm">
-            + Create New Assessment
-          </Link>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "40px", marginBottom: "16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <h2 style={{ fontSize: "20px", fontWeight: "700" }}>Managed Quizzes</h2>
+            <span className="badge badge-neutral">{quizzes.length} Total</span>
+          </div>
         </div>
 
         <div className="table-wrapper">
@@ -70,7 +85,7 @@ export default function TeacherDashboard() {
               {quizzes.length === 0 ? (
                 <tr>
                   <td colSpan="6" style={{ textAlign: "center", color: "var(--color-text-muted)" }}>
-                    No quizzes created yet. Click "Generate Quiz" to get started.
+                    No quizzes created yet. Click "+ Create Quiz" to get started.
                   </td>
                 </tr>
               ) : (
@@ -79,19 +94,21 @@ export default function TeacherDashboard() {
                   return (
                     <tr key={quiz.id}>
                       <td>
-                        <span className="badge badge-accent" style={{ fontFamily: "var(--font-mono)" }}>
+                        <span className="badge badge-accent" style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}>
                           {quiz.code}
                         </span>
                       </td>
-                      <td style={{ fontWeight: "600" }}>{quiz.title}</td>
+                      <td style={{ fontWeight: "600", maxWidth: "320px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={quiz.title}>
+                        {quiz.title}
+                      </td>
                       <td>
-                        <span className="badge badge-neutral">
-                          {quiz.difficulty || "Medium"}
+                        <span className="badge badge-neutral" style={{ fontSize: "10px" }}>
+                          {quiz.difficulty || "MEDIUM"}
                         </span>
                       </td>
-                      <td>{quiz.questions?.length || quiz.questionsCount}</td>
+                      <td style={{ textAlign: "center" }}>{quiz.questions?.length || quiz.questionsCount}</td>
                       <td>
-                        <span className="badge badge-neutral">
+                        <span className="badge badge-neutral" style={{ fontSize: "11px" }}>
                           {quizSubmissions.length} Submissions
                         </span>
                       </td>
@@ -100,7 +117,7 @@ export default function TeacherDashboard() {
                           <button
                             className="btn btn-secondary btn-sm"
                             onClick={() => navigate(`/staff/quiz/${quiz.id}/preview`)}
-                            title="Verify, modify questions, or download quiz"
+                            title="Verify and modify questions"
                           >
                             Verify & Modify
                           </button>
@@ -121,9 +138,13 @@ export default function TeacherDashboard() {
         </div>
 
         {/* Live Student Score Cards & Attempts Table */}
-        <h2 style={{ fontSize: "20px", marginBottom: "16px", marginTop: "40px" }}>
-          Live Student Score Cards & Attempt History
-        </h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "44px", marginBottom: "16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <h2 style={{ fontSize: "20px", fontWeight: "700" }}>Live Student Score Cards & Attempt History</h2>
+            <span className="badge badge-neutral">{attempts.length} Total</span>
+          </div>
+        </div>
+
         <div className="table-wrapper">
           <table className="data-table">
             <thead>
@@ -150,7 +171,9 @@ export default function TeacherDashboard() {
                       {att.studentCode || "STU-9482"}
                     </td>
                     <td>{att.studentName || "Jordan Lee"}</td>
-                    <td>{att.quizTitle}</td>
+                    <td style={{ fontWeight: "500", maxWidth: "260px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {att.quizTitle}
+                    </td>
                     <td style={{ color: "var(--color-text-secondary)" }}>{att.date}</td>
                     <td>
                       <span className={`badge ${att.score >= 70 ? "badge-success" : "badge-danger"}`}>
