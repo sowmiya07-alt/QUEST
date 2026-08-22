@@ -1,0 +1,56 @@
+/* Terminal AI Specification Interface */
+.terminal-window {
+  background: #090B0D;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  font-family: var(--font-mono);
+}
+
+.terminal-header {
+  background: #111519;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.terminal-dots { display: flex; gap: 6px; }
+.terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
+.dot-red { background: #E05C5C; }
+.dot-yellow { background: #E0AD5C; }
+.dot-green { background: #5CE084; }
+
+.terminal-title { font-size: 12px; color: var(--color-text-muted); font-weight: 500; }
+
+.terminal-body {
+  padding: var(--space-4);
+  min-height: 380px;
+  max-height: 520px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.terminal-line { display: flex; gap: 8px; align-items: flex-start; }
+.terminal-prompt { color: var(--color-accent); font-weight: 700; user-select: none; }
+.terminal-output { color: var(--color-text-primary); flex: 1; white-space: pre-wrap; }
+.terminal-system { color: var(--color-text-muted); font-style: italic; }
+.terminal-success { color: var(--color-success); }
+.terminal-error { color: var(--color-danger); }
+
+.terminal-input-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.terminal-input {
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  flex: 1;
+  outline: none;
+}
