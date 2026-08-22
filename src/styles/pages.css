@@ -668,3 +668,223 @@
   font-size: 15px;
   color: var(--color-text-secondary);
 }
+
+/* Previous Attempts Unique Timeline Stream Styling */
+.attempt-performance-banner {
+  background: linear-gradient(135deg, rgba(24, 29, 34, 0.85) 0%, rgba(18, 22, 26, 0.95) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 24px 30px;
+  margin-top: 16px;
+  margin-bottom: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  position: relative;
+  overflow: hidden;
+}
+
+.attempt-performance-banner::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #34D399, var(--color-accent), #F87171);
+}
+
+@media (max-width: 860px) {
+  .attempt-performance-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.banner-metric-group {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.banner-score-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(217, 225, 232, 0.08);
+  border: 2px solid var(--color-accent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--color-text-primary);
+  box-shadow: 0 0 16px rgba(217, 225, 232, 0.1);
+}
+
+.banner-stats-summary {
+  display: flex;
+  gap: 24px;
+}
+
+.banner-stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.banner-stat-num {
+  font-size: 20px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+}
+
+.banner-stat-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.attempt-filter-group {
+  display: flex;
+  gap: 8px;
+  background: rgba(11, 13, 15, 0.6);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.attempt-filter-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 180ms ease;
+}
+
+.attempt-filter-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.attempt-filter-btn.active {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Attempt Stream Cards */
+.attempt-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.attempt-stream-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  position: relative;
+  overflow: hidden;
+  transition: all 200ms ease;
+}
+
+@media (max-width: 768px) {
+  .attempt-stream-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.attempt-stream-card::before {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  width: 4px;
+}
+
+.attempt-stream-card.passed::before {
+  background: #34D399;
+  box-shadow: 0 0 10px #34D399;
+}
+
+.attempt-stream-card.needs-review::before {
+  background: #F87171;
+  box-shadow: 0 0 10px #F87171;
+}
+
+.attempt-stream-card:hover {
+  transform: translateX(4px);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+}
+
+.attempt-info-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.attempt-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.attempt-quiz-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.attempt-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.attempt-score-bar-bg {
+  width: 140px;
+  height: 6px;
+  background: var(--color-elevated);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.attempt-score-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 300ms ease;
+}
+
+.attempt-score-bar-fill.passed {
+  background: #34D399;
+}
+
+.attempt-score-bar-fill.needs-review {
+  background: #F87171;
+}
+
+.attempt-actions-group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
