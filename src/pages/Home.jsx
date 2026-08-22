@@ -56,17 +56,6 @@ export default function Home() {
               </>
             )}
           </div>
-
-          {/* Hero Feature Pill Bar */}
-          <div className="hero-pill-bar">
-            <span className="hero-pill">⚡ AI Terminal Specs</span>
-            <span className="hero-pill-divider">•</span>
-            <span className="hero-pill">🎯 Instant Diagnostic Review</span>
-            <span className="hero-pill-divider">•</span>
-            <span className="hero-pill">🔒 Role Security</span>
-            <span className="hero-pill-divider">•</span>
-            <span className="hero-pill">📈 Real-Time Analytics</span>
-          </div>
         </section>
 
         {/* Feature Cards Grid */}
