@@ -16,7 +16,8 @@ export default function Navbar() {
     <header className="navbar">
       <div className="navbar-inner">
         <Link to="/" className="navbar-logo">
-          <span style={{ color: "var(--color-accent)", fontSize: "22px" }}>❖</span> QUEST
+          <span className="navbar-logo-icon">❖</span>
+          <span>QUEST</span>
         </Link>
 
         <nav className="navbar-links">
@@ -32,7 +33,7 @@ export default function Navbar() {
                 to="/staff/quiz/create"
                 className={`navbar-link ${location.pathname === "/staff/quiz/create" ? "active" : ""}`}
               >
-                Create Quiz
+                Generate Quiz
               </Link>
             </>
           ) : (
@@ -54,7 +55,7 @@ export default function Navbar() {
         </nav>
 
         <div className="navbar-right">
-          {/* Quick role toggle button for testing ease */}
+          {/* Role switcher demo button */}
           <button
             className="btn btn-ghost btn-sm"
             style={{ fontSize: "12px", border: "1px dashed var(--color-border)" }}
