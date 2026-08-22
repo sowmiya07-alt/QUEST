@@ -128,9 +128,15 @@ const INITIAL_ATTEMPTS = [
 ];
 
 export function AuthProvider({ children }) {
+  // Default user is null so opening the app lands on the landing page
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem("quest_user");
-    return saved ? JSON.parse(saved) : { name: "Prof. Alex Morgan", role: "teacher", code: "TCH-5510", email: "teacher@quest.edu" };
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const [registeredUsers, setRegisteredUsers] = useState(() => {
+    const saved = localStorage.getItem("quest_registered_users");
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [quizzes, setQuizzes] = useState(() => {
@@ -167,6 +173,10 @@ export function AuthProvider({ children }) {
   }, [user]);
 
   useEffect(() => {
+    localStorage.setItem("quest_registered_users", JSON.stringify(registeredUsers));
+  }, [registeredUsers]);
+
+  useEffect(() => {
     localStorage.setItem("quest_quizzes", JSON.stringify(quizzes));
   }, [quizzes]);
 
@@ -174,23 +184,54 @@ export function AuthProvider({ children }) {
     localStorage.setItem("quest_attempts", JSON.stringify(attempts));
   }, [attempts]);
 
-  const loginAsTeacher = (email = "teacher@quest.edu", name = "Prof. Alex Morgan") => {
-    const u = { name, role: "teacher", code: "TCH-5510", email };
-    setUser(u);
-    return u;
+  /**
+   * Universal Login or First-Time Account Creation Helper
+   * Requires user-entered credentials. No default dummy email or password fallbacks.
+   */
+  const loginOrRegisterUser = ({ name, identity, password, role }) => {
+    const trimmedIdentity = identity ? identity.trim() : "";
+    if (!trimmedIdentity || !password) {
+      throw new Error("Login ID and Password are required.");
+    }
+
+    const existing = registeredUsers.find(
+      (u) => u.identity.toLowerCase() === trimmedIdentity.toLowerCase() && u.role === role
+    );
+
+    if (existing) {
+      if (existing.password && existing.password !== password) {
+        throw new Error("Invalid password for existing account.");
+      }
+      setUser(existing);
+      return { user: existing, isNew: false };
+    } else {
+      const userCode = trimmedIdentity.toUpperCase();
+      const newUser = {
+        name: name ? name.trim() : trimmedIdentity,
+        identity: trimmedIdentity,
+        email: trimmedIdentity,
+        code: userCode,
+        role,
+        password: password,
+        createdAt: new Date().toISOString()
+      };
+
+      setRegisteredUsers((prev) => [newUser, ...prev]);
+      setUser(newUser);
+      return { user: newUser, isNew: true };
+    }
   };
 
-  const loginAsStudent = (code = "STU-9482", name = "Jordan Lee") => {
-    const u = { name, role: "student", code, email: "student@quest.edu" };
-    setUser(u);
-    return u;
+  const loginAsTeacher = (email, name, password) => {
+    return loginOrRegisterUser({ name, identity: email, password, role: "teacher" }).user;
   };
 
-  const registerStudent = (name, email) => {
-    const code = "STU-" + Math.floor(1000 + Math.random() * 9000);
-    const u = { name, role: "student", code, email };
-    setUser(u);
-    return u;
+  const loginAsStudent = (code, name, password) => {
+    return loginOrRegisterUser({ name, identity: code, password, role: "student" }).user;
+  };
+
+  const registerStudent = (name, email, password) => {
+    return loginOrRegisterUser({ name, identity: email, password, role: "student" }).user;
   };
 
   const logout = () => {
@@ -228,6 +269,7 @@ export function AuthProvider({ children }) {
         user,
         quizzes,
         attempts,
+        loginOrRegisterUser,
         loginAsTeacher,
         loginAsStudent,
         registerStudent,

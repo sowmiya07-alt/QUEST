@@ -2,6 +2,16 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
+import "../styles/terminal.css";
+
+const PROMPT_ASCII_BANNER = `
+ ██████╗ ██████╗  ██████╗ ███╗   ███╗██████╗ ████████╗
+██╔══██╗██╔══██╗██╔═══██╗████╗ ████║██╔══██╗╚══██╔══╝
+██████╔╝██████╔╝██║   ██║██╔████╔██║██████╔╝   ██║   
+██╔═══╝ ██╔══██╗██║   ██║██║╚██╔╝██║██╔═══╝    ██║   
+██║     ██║  ██║╚██████╔╝██║ ╚═╝ ██║██║        ██║   
+╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝        ╚═╝   
+`;
 
 export default function CreateQuiz() {
   const { addQuiz } = useAuth();
@@ -15,13 +25,14 @@ export default function CreateQuiz() {
   const [file, setFile] = useState(null);
   const [fileContent, setFileContent] = useState("");
 
-  // Prompt / External AI Modal state
+  // Terminal Branch B State
   const [showPromptStep, setShowPromptStep] = useState(false);
   const [jsonPrompt, setJsonPrompt] = useState("");
   const [pastedJson, setPastedJson] = useState("");
   const [copiedToast, setCopiedToast] = useState(false);
   const [parseError, setParseError] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [cliInput, setCliInput] = useState("");
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -87,11 +98,10 @@ export default function CreateQuiz() {
   };
 
   const handleImportPastedJson = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setParseError("");
     try {
       let parsed = JSON.parse(pastedJson);
-      // If array wrapper
       if (Array.isArray(parsed)) {
         parsed = { questions: parsed };
       }
@@ -130,10 +140,29 @@ export default function CreateQuiz() {
     }
   };
 
+  const handleTerminalCliSubmit = (e) => {
+    e.preventDefault();
+    if (!cliInput.trim()) return;
+
+    const cmd = cliInput.trim().toLowerCase();
+    setCliInput("");
+
+    if (cmd === "/copy") {
+      handleCopyPrompt();
+    } else if (cmd === "/import" || cmd === "/create") {
+      handleImportPastedJson();
+    } else if (cmd === "/clear") {
+      setPastedJson("");
+      setParseError("");
+    } else if (cmd === "/back") {
+      setShowPromptStep(false);
+    }
+  };
+
   return (
     <div className="app-shell">
       <Navbar />
-      <main className="app-content container" style={{ maxWidth: "800px" }}>
+      <main className="app-content container" style={{ maxWidth: showPromptStep ? "940px" : "800px" }}>
         <button
           className="btn btn-ghost btn-sm"
           onClick={() => navigate("/staff/dashboard")}
@@ -150,6 +179,7 @@ export default function CreateQuiz() {
         </div>
 
         {!showPromptStep ? (
+          /* FORM CONFIGURATION VIEW */
           <form onSubmit={handleGenerateClick} className="card">
             <h3 style={{ fontSize: "18px", marginBottom: "20px" }}>Assessment Configuration</h3>
 
@@ -260,7 +290,7 @@ export default function CreateQuiz() {
 
             <div style={{ marginTop: "24px", paddingTop: "16px", borderTop: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
-                {file ? "⚡ In-App AI generation mode (Material attached)" : "🤖 External AI JSON Prompt mode (No material)"}
+                {file ? "⚡ In-App AI generation mode (Material attached)" : "🤖 External AI Terminal Prompt mode (No material)"}
               </span>
               <button type="submit" className="btn btn-primary btn-lg" disabled={isProcessing}>
                 {isProcessing ? "Generating Quiz..." : "Generate Quiz →"}
@@ -268,75 +298,162 @@ export default function CreateQuiz() {
             </div>
           </form>
         ) : (
-          /* BRANCH B: JSON PROMPT & PASTE MODAL / SECTION */
-          <div className="card">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <div>
-                <span className="badge badge-accent">External AI Prompt Workflow</span>
-                <h2 style={{ fontSize: "22px", marginTop: "4px" }}>JSON Quiz Prompt Generated</h2>
-              </div>
-              <button className="btn btn-ghost btn-sm" onClick={() => setShowPromptStep(false)}>
-                ← Change Form Specs
-              </button>
-            </div>
-
-            <p style={{ fontSize: "14px", color: "var(--color-text-secondary)", marginBottom: "16px" }}>
-              Follow these simple steps: <strong>1. Copy the JSON Prompt</strong> → <strong>2. Paste into external AI</strong> (ChatGPT / Claude / Gemini) → <strong>3. Paste the AI response below</strong>.
-            </p>
-
-            {/* Step 1: Copy Prompt */}
-            <div className="form-group">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                <label className="label">Step 1: Generated AI JSON Prompt</label>
+          /* BRANCH B: RETRO TERMINAL DESIGN MATCHING REFERENCE IMAGES */
+          <div className="terminal-page-container">
+            <div className="terminal-window">
+              {/* macOS Window Title Bar */}
+              <div className="terminal-header">
+                <div className="terminal-dots">
+                  <span className="terminal-dot dot-red" />
+                  <span className="terminal-dot dot-yellow" />
+                  <span className="terminal-dot dot-green" />
+                </div>
+                <span className="terminal-title">teacher@quest ~ /json-prompt-generator</span>
                 <button
                   type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={handleCopyPrompt}
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setShowPromptStep(false)}
+                  style={{ fontSize: "11px", padding: "2px 8px" }}
                 >
-                  {copiedToast ? "✓ Copied to Clipboard!" : "📋 Copy JSON Prompt"}
+                  ← Form Specs
                 </button>
               </div>
-              <textarea
-                className="json-input"
-                rows={8}
-                value={jsonPrompt}
-                readOnly
-                style={{ fontFamily: "var(--font-mono)", fontSize: "12px", background: "#0B0D0F", color: "var(--color-accent)" }}
-              />
-            </div>
 
-            {/* Step 2 & 3: Paste JSON Response */}
-            <form onSubmit={handleImportPastedJson} style={{ marginTop: "24px" }}>
-              {parseError && <div className="form-error">{parseError}</div>}
-              <div className="form-group">
-                <label className="label">Step 2 & 3: Paste External AI JSON Response Here *</label>
-                <textarea
-                  className="json-input"
-                  rows={10}
-                  value={pastedJson}
-                  onChange={(e) => {
-                    setPastedJson(e.target.value);
-                    setParseError("");
-                  }}
-                  placeholder='Paste AI output JSON here e.g. {"title": "...", "questions": [...] }'
-                  required
-                  style={{ fontFamily: "var(--font-mono)", fontSize: "13px" }}
+              {/* Terminal Body */}
+              <div className="terminal-body">
+                {/* ASCII Banner Header */}
+                <div className="terminal-ascii-banner" style={{ color: "#F5C2E7" }}>
+                  {PROMPT_ASCII_BANNER}
+                </div>
+
+                {/* System initialization status */}
+                <div className="terminal-line">
+                  <span className="terminal-system">Initializing QUEST AI prompt generator engine...</span>
+                </div>
+                <div className="terminal-line">
+                  <span className="terminal-progress-track">[██████████████████████████████] done</span>
+                </div>
+                <div className="terminal-line">
+                  <span className="terminal-ready">
+                    ✦ Target Topic: "{title}" | Difficulty: {difficulty} | Questions: {questionsCount} | Time: {timeLimit} mins
+                  </span>
+                </div>
+
+                {/* Grid layout inside terminal matching reference image 2 */}
+                <div className="terminal-grid">
+                  {/* Left Column: Generated Prompt Card */}
+                  <div className="terminal-grid-card">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                      <span className="terminal-grid-title" style={{ margin: 0 }}>Step 1: Generated Prompt</span>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={handleCopyPrompt}
+                        style={{ fontSize: "11px", padding: "4px 10px" }}
+                      >
+                        {copiedToast ? "✓ Copied!" : "📋 Copy Prompt"}
+                      </button>
+                    </div>
+                    <textarea
+                      className="json-input"
+                      rows={7}
+                      value={jsonPrompt}
+                      readOnly
+                      style={{
+                        background: "#11111C",
+                        border: "1px solid rgba(255, 255, 255, 0.1)",
+                        borderRadius: "8px",
+                        color: "#FAB387",
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "11px",
+                        lineHeight: "1.4"
+                      }}
+                    />
+                  </div>
+
+                  {/* Right Column: Workflow Steps & Instructions */}
+                  <div className="terminal-grid-card">
+                    <div className="terminal-grid-title">External AI Workflow</div>
+                    <div className="terminal-row">
+                      <span className="terminal-label">Step 1:</span>
+                      <span className="terminal-val">Click 'Copy Prompt' button</span>
+                    </div>
+                    <div className="terminal-row">
+                      <span className="terminal-label">Step 2:</span>
+                      <span className="terminal-val">Paste into ChatGPT / Claude</span>
+                    </div>
+                    <div className="terminal-row">
+                      <span className="terminal-label">Step 3:</span>
+                      <span className="terminal-val">Paste AI response JSON below</span>
+                    </div>
+                    <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px dashed rgba(255, 255, 255, 0.1)", fontSize: "11px", color: "#A6ADC8" }}>
+                      💡 Tip: Use <span className="terminal-cmd-highlight" onClick={handleCopyPrompt}>/copy</span> to copy prompt, or <span className="terminal-cmd-highlight" onClick={() => handleImportPastedJson()}>/import</span> to submit.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 2 & 3: Paste AI JSON Output inside Terminal */}
+                <form onSubmit={handleImportPastedJson} style={{ marginTop: "8px" }}>
+                  {parseError && (
+                    <div className="terminal-line" style={{ marginBottom: "8px" }}>
+                      <span className="terminal-error">✖ {parseError}</span>
+                    </div>
+                  )}
+
+                  <label className="terminal-label" style={{ display: "block", marginBottom: "6px" }}>
+                    Step 2 & 3: Paste External AI Output JSON Response Here *
+                  </label>
+                  <textarea
+                    className="json-input"
+                    rows={8}
+                    value={pastedJson}
+                    onChange={(e) => {
+                      setPastedJson(e.target.value);
+                      setParseError("");
+                    }}
+                    placeholder='Paste external AI output JSON string here e.g. {"title": "...", "questions": [...] }'
+                    required
+                    style={{
+                      background: "#11111C",
+                      border: "1px solid rgba(255, 255, 255, 0.12)",
+                      borderRadius: "10px",
+                      color: "#A6E3A1",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "12px",
+                      lineHeight: "1.5"
+                    }}
+                  />
+
+                  <div style={{ display: "flex", gap: "12px", marginTop: "12px", justifyContent: "flex-end" }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => handleCopyPrompt()}
+                    >
+                      Re-copy Prompt
+                    </button>
+                    <button type="submit" className="btn btn-primary btn-md">
+                      📥 Import & Open Quiz Generated Page →
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Command Input Prompt at Bottom */}
+              <form onSubmit={handleTerminalCliSubmit} className="terminal-input-bar">
+                <span className="terminal-input-prompt-symbol">&gt;</span>
+                <input
+                  className="terminal-input-field"
+                  type="text"
+                  value={cliInput}
+                  onChange={(e) => setCliInput(e.target.value)}
+                  placeholder='Type a command ... try "/copy", "/import", or "/clear"'
                 />
-              </div>
-
-              <div style={{ display: "flex", gap: "12px", marginTop: "16px", justifyContent: "flex-end" }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-md"
-                  onClick={() => handleCopyPrompt()}
-                >
-                  Re-copy Prompt
+                <button type="submit" className="btn btn-secondary btn-sm">
+                  Execute →
                 </button>
-                <button type="submit" className="btn btn-primary btn-md">
-                  Import & Open Quiz Generated Page →
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         )}
       </main>

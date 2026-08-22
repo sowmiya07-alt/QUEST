@@ -17,6 +17,7 @@ import TakeQuiz from "./pages/TakeQuiz";
 import StudentResult from "./pages/StudentResult";
 import WrongAnswerReview from "./pages/WrongAnswerReview";
 import PreviousAttempts from "./pages/PreviousAttempts";
+import AnimatedAuth from "./components/AnimatedAuth";
 
 function RequireRole({ role, children }) {
   const { user } = useAuth();
@@ -31,6 +32,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Home />} />
 
+      <Route path="/login" element={<AnimatedAuth initialRole="teacher" />} />
       <Route path="/student/login" element={<StudentLogin />} />
       <Route path="/student/register" element={<StudentRegister />} />
       <Route path="/student/dashboard" element={<RequireRole role="student"><StudentDashboard /></RequireRole>} />
@@ -43,9 +45,13 @@ export default function App() {
       <Route path="/staff/login" element={<TeacherLogin />} />
       <Route path="/staff/dashboard" element={<RequireRole role="teacher"><TeacherDashboard /></RequireRole>} />
       <Route path="/staff/quiz/create" element={<RequireRole role="teacher"><CreateQuiz /></RequireRole>} />
+      
+      {/* SEPARATE TERMINAL PAGES */}
       <Route path="/staff/quiz/create/terminal" element={<RequireRole role="teacher"><AiSpecification /></RequireRole>} />
+      <Route path="/staff/quiz/create/import-terminal" element={<RequireRole role="teacher"><ImportAiQuiz /></RequireRole>} />
       <Route path="/staff/quiz/:quizId/terminal" element={<RequireRole role="teacher"><AiSpecification /></RequireRole>} />
       <Route path="/staff/quiz/:quizId/import" element={<RequireRole role="teacher"><ImportAiQuiz /></RequireRole>} />
+      
       <Route path="/staff/quiz/:quizId/preview" element={<RequireRole role="teacher"><QuizPreview /></RequireRole>} />
       <Route path="/staff/quiz/:quizId/results" element={<RequireRole role="teacher"><QuizResults /></RequireRole>} />
 
