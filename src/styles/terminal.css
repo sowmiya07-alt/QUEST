@@ -1,56 +1,151 @@
-/* Terminal AI Specification Interface */
+/* Reference Terminal Design (Catppuccin / Dracula Navy Theme) */
+
+.terminal-page-container {
+  max-width: 940px;
+  margin: 0 auto;
+  animation: terminalPageIn 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes terminalPageIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .terminal-window {
-  background: #090B0D;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  background: #171827;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(100, 110, 245, 0.08);
   font-family: var(--font-mono);
+  color: #CDD6F4;
 }
 
 .terminal-header {
-  background: #111519;
-  padding: 10px 16px;
-  display: flex;
+  background: #11111C;
+  padding: 12px 18px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.terminal-dots { display: flex; gap: 6px; }
-.terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
-.dot-red { background: #E05C5C; }
-.dot-yellow { background: #E0AD5C; }
-.dot-green { background: #5CE084; }
+.terminal-dots { display: flex; gap: 8px; }
+.terminal-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.dot-red { background: #FF5F56; }
+.dot-yellow { background: #FFBD2E; }
+.dot-green { background: #27C93F; }
 
-.terminal-title { font-size: 12px; color: var(--color-text-muted); font-weight: 500; }
+.terminal-title {
+  font-size: 13px;
+  color: #A6ADC8;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
 
 .terminal-body {
-  padding: var(--space-4);
-  min-height: 380px;
-  max-height: 520px;
+  padding: 24px;
+  min-height: 480px;
+  max-height: 640px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   font-size: 13px;
   line-height: 1.6;
+  background: #171827;
 }
 
-.terminal-line { display: flex; gap: 8px; align-items: flex-start; }
-.terminal-prompt { color: var(--color-accent); font-weight: 700; user-select: none; }
-.terminal-output { color: var(--color-text-primary); flex: 1; white-space: pre-wrap; }
-.terminal-system { color: var(--color-text-muted); font-style: italic; }
-.terminal-success { color: var(--color-success); }
-.terminal-error { color: var(--color-danger); }
+/* ASCII Banner Header at the top of the terminal */
+.terminal-ascii-banner {
+  color: #F5C2E7;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.15;
+  white-space: pre;
+  user-select: none;
+  margin-bottom: 12px;
+  text-shadow: 0 0 10px rgba(245, 194, 231, 0.2);
+}
 
-.terminal-input-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
-.terminal-input {
+/* Terminal Grid Layout (Capabilities & Navigation side-by-side like reference image) */
+.terminal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 12px 0;
+}
+
+.terminal-grid-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.terminal-grid-title {
+  color: #FAB387;
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.terminal-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.terminal-label { color: #7F849C; }
+.terminal-val { color: #CDD6F4; font-weight: 600; }
+.terminal-cmd-highlight { color: #89B4FA; font-weight: 600; cursor: pointer; }
+.terminal-cmd-highlight:hover { text-decoration: underline; }
+
+/* Progress bar inside terminal */
+.terminal-progress-track {
+  color: #A6E3A1;
+  font-weight: 600;
+}
+
+/* Output lines */
+.terminal-line { display: flex; gap: 10px; align-items: flex-start; }
+.terminal-prompt { color: #FAB387; font-weight: 700; user-select: none; }
+.terminal-output { color: #CDD6F4; flex: 1; white-space: pre-wrap; }
+.terminal-system { color: #7F849C; font-style: italic; }
+.terminal-success { color: #A6E3A1; font-weight: 600; }
+.terminal-error { color: #F38BA8; }
+.terminal-ready { color: #FAB387; font-weight: 700; }
+
+/* Interactive Command Prompt Row at bottom of terminal */
+.terminal-input-bar {
+  padding: 14px 20px;
+  background: #11111C;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.terminal-input-prompt-symbol {
+  color: #FAB387;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.terminal-input-field {
   background: transparent;
   border: none;
-  color: var(--color-text-primary);
+  color: #CDD6F4;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 14px;
   flex: 1;
   outline: none;
+}
+
+.terminal-input-field::placeholder {
+  color: #585B70;
 }

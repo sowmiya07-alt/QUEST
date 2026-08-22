@@ -51,8 +51,11 @@ export default function TeacherDashboard() {
             <Link to="/staff/quiz/create/terminal" className="btn btn-secondary btn-md">
               💻 AI Spec Terminal
             </Link>
+            <Link to="/staff/quiz/create/import-terminal" className="btn btn-secondary btn-md">
+              📥 JSON Import Terminal
+            </Link>
             <Link to="/staff/quiz/create" className="btn btn-primary btn-md">
-              + Create Quiz
+              ⚡ Generate Quiz
             </Link>
           </div>
         </div>
@@ -108,7 +111,7 @@ export default function TeacherDashboard() {
               {quizzes.length === 0 ? (
                 <tr>
                   <td colSpan="6" style={{ textAlign: "center", color: "var(--color-text-muted)", padding: "32px" }}>
-                    No quizzes created yet. Click "+ Create Quiz" to get started.
+                    No quizzes created yet. Click "Generate Quiz" to get started.
                   </td>
                 </tr>
               ) : (
