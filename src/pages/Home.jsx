@@ -38,29 +38,40 @@ export default function Home() {
           </div>
         </section>
 
-        <section style={{ marginTop: "40px" }}>
-          <h2 style={{ fontSize: "22px", marginBottom: "20px", textAlign: "center" }}>Core Platform Capabilities</h2>
-          <div className="grid-cards">
-            <div className="card">
-              <div style={{ fontSize: "24px", marginBottom: "8px" }}>⚡</div>
-              <h3 style={{ fontSize: "18px", marginBottom: "8px" }}>AI Terminal Specification</h3>
-              <p style={{ fontSize: "14px" }}>
+        <section className="features-section">
+          <div className="features-header">
+            <span className="badge badge-accent">Platform Highlights</span>
+            <h2 className="features-title">Core Platform Capabilities</h2>
+            <p className="features-subtitle">Everything you need to create, conduct, and analyze assessments seamlessly.</p>
+          </div>
+
+          <div className="features-grid">
+            <div className="feature-card">
+              <div className="feature-icon-wrapper icon-amber">
+                <span className="feature-icon">⚡</span>
+              </div>
+              <h3 className="feature-card-title">AI Terminal Specification</h3>
+              <p className="feature-card-desc">
                 Generate precise quiz questions and rubrics using prompt specifications directly in an integrated terminal workflow.
               </p>
             </div>
 
-            <div className="card">
-              <div style={{ fontSize: "24px", marginBottom: "8px" }}>🎯</div>
-              <h3 style={{ fontSize: "18px", marginBottom: "8px" }}>Instant Diagnostic Feedback</h3>
-              <p style={{ fontSize: "14px" }}>
+            <div className="feature-card">
+              <div className="feature-icon-wrapper icon-blue">
+                <span className="feature-icon">🎯</span>
+              </div>
+              <h3 className="feature-card-title">Instant Diagnostic Feedback</h3>
+              <p className="feature-card-desc">
                 Students receive instantaneous score breakdowns and step-by-step wrong answer reviews with clear explanations.
               </p>
             </div>
 
-            <div className="card">
-              <div style={{ fontSize: "24px", marginBottom: "8px" }}>🔒</div>
-              <h3 style={{ fontSize: "18px", marginBottom: "8px" }}>Role-Based Access Control</h3>
-              <p style={{ fontSize: "14px" }}>
+            <div className="feature-card">
+              <div className="feature-icon-wrapper icon-emerald">
+                <span className="feature-icon">🔒</span>
+              </div>
+              <h3 className="feature-card-title">Role-Based Access Control</h3>
+              <p className="feature-card-desc">
                 Distinct security boundaries for students and staff with unique access codes and state management.
               </p>
             </div>
