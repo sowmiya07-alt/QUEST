@@ -7,7 +7,9 @@ export const config = {
 export default async function handler(req, res) {
   const targetHost = "https://roman-jolly-operable.ngrok-free.dev";
   
+  // Extract path to forward
   let cleanUrl = req.url;
+  // If rewriten via query parameter
   if (req.query && req.query.match) {
     const match = Array.isArray(req.query.match) ? req.query.match.join("/") : req.query.match;
     cleanUrl = `/QUEST/${match}`;
@@ -18,6 +20,7 @@ export default async function handler(req, res) {
     }
   }
 
+  // Extract clean query string without rewrite params
   const targetPathOnly = cleanUrl.split("?")[0].replace(/\/+$/, "") + "/";
   const targetUrl = `${targetHost}${targetPathOnly}`;
 
@@ -25,6 +28,7 @@ export default async function handler(req, res) {
   delete headers.host;
   headers["ngrok-skip-browser-warning"] = "true";
 
+  // Read request body stream
   const chunks = [];
   for await (const chunk of req) {
     chunks.push(chunk);
