@@ -38,37 +38,42 @@ export default function StudentDashboard() {
     <div className="app-shell">
       <Navbar />
       <main className="app-content container">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+        <div className="dashboard-header" style={{ marginBottom: "28px" }}>
           <div>
-            <h1 style={{ fontSize: "28px" }}>Student Portal — Welcome, {user?.name}</h1>
-            <p style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>
-              Student ID: <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-accent)" }}>{user?.code}</span>
+            <h1 style={{ fontSize: "28px", fontWeight: "800", letterSpacing: "-0.02em" }}>Student Portal</h1>
+            <p style={{ color: "var(--color-text-secondary)", fontSize: "14px", marginTop: "4px" }}>
+              Welcome back, <strong style={{ color: "var(--color-text-primary)" }}>{user?.name}</strong> • Student ID: <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-accent)" }}>{user?.code}</span>
             </p>
           </div>
         </div>
 
         {/* Quick Join via Reference Code Hero Box */}
-        <div className="card" style={{ marginBottom: "24px", background: "var(--color-elevated)" }}>
-          <h2 style={{ fontSize: "18px", marginBottom: "8px" }}>⚡ Attempt Quiz through Reference Code</h2>
-          <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "16px" }}>
+        <div className="join-code-card">
+          <div className="join-code-header">
+            <span style={{ fontSize: "20px" }}>⚡</span>
+            <h2 className="join-code-title">Attempt Quiz through Reference Code</h2>
+          </div>
+          <p className="join-code-desc">
             Have a reference code from your teacher? Enter it below to start your assessment immediately.
           </p>
 
           {codeError && <div className="form-error">{codeError}</div>}
 
-          <form onSubmit={handleJoinByCode} style={{ display: "flex", gap: "12px" }}>
-            <input
-              className="input"
-              type="text"
-              value={inputCode}
-              onChange={(e) => {
-                setInputCode(e.target.value);
-                setCodeError("");
-              }}
-              placeholder="e.g. REACT2024 or QUIZ8821"
-              style={{ fontFamily: "var(--font-mono)", fontSize: "16px", letterSpacing: "0.05em", textTransform: "uppercase" }}
-            />
-            <button type="submit" className="btn btn-primary btn-md">
+          <form onSubmit={handleJoinByCode} className="join-code-form">
+            <div className="join-code-input-wrapper">
+              <span className="join-code-icon">🔑</span>
+              <input
+                className="input join-code-input"
+                type="text"
+                value={inputCode}
+                onChange={(e) => {
+                  setInputCode(e.target.value);
+                  setCodeError("");
+                }}
+                placeholder="E.G. REACT2024 OR QUIZ8821"
+              />
+            </div>
+            <button type="submit" className="btn btn-primary join-code-btn">
               Attempt Quiz →
             </button>
           </form>
@@ -77,33 +82,50 @@ export default function StudentDashboard() {
         {/* Stats */}
         <div className="stat-grid">
           <div className="stat-card">
+            <div className="stat-card-header">
+              <span className="stat-label">Assigned Quizzes</span>
+              <span className="stat-icon">📚</span>
+            </div>
             <span className="stat-value">{quizzes.length}</span>
-            <span className="stat-label">Assigned Quizzes</span>
           </div>
+
           <div className="stat-card">
+            <div className="stat-card-header">
+              <span className="stat-label">Completed Attempts</span>
+              <span className="stat-icon">✅</span>
+            </div>
             <span className="stat-value">{userAttempts.length}</span>
-            <span className="stat-label">Completed Attempts</span>
           </div>
+
           <div className="stat-card">
+            <div className="stat-card-header">
+              <span className="stat-label">Average Score</span>
+              <span className="stat-icon">📊</span>
+            </div>
             <span className="stat-value">{avgScore}%</span>
-            <span className="stat-label">Average Score</span>
           </div>
         </div>
 
         {/* Active Quizzes List */}
-        <h2 style={{ fontSize: "20px", marginBottom: "16px", marginTop: "32px" }}>Available Assessments</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "40px", marginBottom: "20px" }}>
+          <h2 style={{ fontSize: "20px", fontWeight: "700" }}>Available Assessments</h2>
+          <span className="badge badge-neutral">{quizzes.length} Total</span>
+        </div>
+
         <div className="grid-cards">
           {quizzes.map((quiz) => (
             <div key={quiz.id} className="quiz-card">
-              <div>
+              <div className="quiz-card-content">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                  <span className="badge badge-accent" style={{ fontFamily: "var(--font-mono)" }}>
+                  <span className="badge badge-accent" style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}>
                     CODE: {quiz.code}
                   </span>
-                  <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>⏱ {quiz.timeLimit} mins</span>
+                  <span style={{ fontSize: "12px", color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: "4px" }}>
+                    ⏱ {quiz.timeLimit} mins
+                  </span>
                 </div>
-                <h3 className="quiz-card-title">{quiz.title}</h3>
-                <p style={{ fontSize: "13px", marginTop: "6px", color: "var(--color-text-secondary)" }}>
+                <h3 className="quiz-card-title" title={quiz.title}>{quiz.title}</h3>
+                <p className="quiz-card-desc">
                   {quiz.description || "General assessment module."}
                 </p>
               </div>
