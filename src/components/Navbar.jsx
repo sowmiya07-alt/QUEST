@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useAuth, getDisplayName } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext";
+import { getDisplayName } from "../utils/format";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -8,11 +9,11 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isTeacher = user?.role === "teacher";
-  const displayName = getDisplayName(user?.name, user?.email);
+  const isTeacher = user?.role === "teacher" || user?.role === "staff" || user?.role === "faculty";
+  const displayName = getDisplayName(user?.name, user?.email || user?.user_code);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate("/");
   };
 
@@ -78,7 +79,7 @@ export default function Navbar() {
                   <div className="profile-dropdown-header">
                     <span className="profile-name">{displayName}</span>
                     <span className="profile-role">{user.role?.toUpperCase()} ACCOUNT</span>
-                    <span className="profile-usercode">ID: {user.code || user.identity || user.email}</span>
+                    <span className="profile-usercode">ID: {user.user_code || user.code || user.identity || user.email}</span>
                   </div>
                   <button
                     className="profile-dropdown-item"

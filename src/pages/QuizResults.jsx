@@ -1,35 +1,43 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import staffService from "../services/staffService";
 import Navbar from "../components/Navbar";
 
 export default function QuizResults() {
   const { quizId } = useParams();
   const navigate = useNavigate();
-  const { quizzes, attempts: ctxAttempts } = useAuth();
 
   const [resultsData, setResultsData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const fetchResults = () => {
+  const fetchResults = useCallback(async () => {
     if (!quizId) return;
-    const matchQuiz = (quizzes || []).find(q => String(q.id) === String(quizId));
-    const filteredAttempts = (ctxAttempts || []).filter(a => String(a.quizId) === String(quizId) || String(a.quiz_id) === String(quizId));
-    setResultsData({
-      quiz_title: matchQuiz?.title || `Quiz Assessment #${quizId}`,
-      quiz_code: matchQuiz?.code || "",
-      results: filteredAttempts
-    });
-  };
+    try {
+      setLoading(true);
+      setError("");
+      const data = await staffService.getQuizResults(quizId);
+      setResultsData(data);
+    } catch (err) {
+      console.error("[QuizResults] Error loading results:", err);
+      setError(err.message || "Failed to load quiz results.");
+    } finally {
+      setLoading(false);
+    }
+  }, [quizId]);
 
   useEffect(() => {
     fetchResults();
-  }, [quizId, quizzes, ctxAttempts]);
+  }, [fetchResults]);
 
   const quizTitle = resultsData?.quiz_title || resultsData?.title || `Quiz Assessment #${quizId}`;
   const quizCode = resultsData?.quiz_code || resultsData?.code || "";
-  const attempts = resultsData?.results || resultsData?.attempts || resultsData?.submissions || (Array.isArray(resultsData) ? resultsData : []);
+  const attempts =
+    resultsData?.results ||
+    resultsData?.attempts ||
+    resultsData?.submissions ||
+    (Array.isArray(resultsData) ? resultsData : []);
+
   const totalSubmissions = attempts.length;
   const avgScore = totalSubmissions
     ? Math.round(
@@ -61,14 +69,18 @@ export default function QuizResults() {
         {error && (
           <div className="form-error" style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span>{error}</span>
-            <button className="btn btn-ghost btn-sm" onClick={fetchResults}>Retry</button>
+            <button className="btn btn-ghost btn-sm" onClick={fetchResults}>
+              Retry
+            </button>
           </div>
         )}
 
         {loading ? (
           <div className="card" style={{ padding: "48px", textAlign: "center" }}>
             <div className="pulse-dot" style={{ margin: "0 auto 16px" }} />
-            <p style={{ color: "var(--color-text-secondary)", fontSize: "15px" }}>Loading quiz submissions from Django backend...</p>
+            <p style={{ color: "var(--color-text-secondary)", fontSize: "15px" }}>
+              Loading quiz submissions from Django backend...
+            </p>
           </div>
         ) : (
           <>

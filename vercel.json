@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/QUEST/:match*",
+      "destination": "https://nexus-production-7fa0.up.railway.app/QUEST/:match*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

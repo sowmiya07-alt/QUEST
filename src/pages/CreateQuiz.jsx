@@ -1,11 +1,10 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import staffService from "../services/staffService";
 import Navbar from "../components/Navbar";
 
 export default function CreateQuiz() {
   const navigate = useNavigate();
-  const { addQuiz } = useAuth();
 
   // Form State
   const [title, setTitle] = useState("");
@@ -35,43 +34,53 @@ export default function CreateQuiz() {
     setError("");
     setIsProcessing(true);
 
-    const generatedCode = "QUIZ-" + Math.floor(1000 + Math.random() * 9000);
-    const newLocalQuiz = {
-      id: `q-${Date.now()}`,
-      code: generatedCode,
-      title: title.trim(),
-      topics: topics.trim() || title.trim(),
-      difficulty: difficulty,
-      timeLimit: parseInt(timeLimit, 10) || 15,
-      createdDate: new Date().toISOString().split("T")[0],
-      assigned: true,
-      status: file ? "ACTIVE" : "DRAFT",
-      questionsCount: parseInt(questionsCount, 10) || 5,
-      questions: file ? [
-        {
-          id: "q1",
-          question: `Sample question generated from uploaded document: ${file.name} (Q1)`,
-          options: ["Core structural concept", "Secondary baseline", "Alternative model", "Optimized execution"],
-          correctIndex: 0,
-          explanation: "Generated based on content extracted from uploaded material."
-        },
-        {
-          id: "q2",
-          question: `Sample question generated from uploaded document: ${file.name} (Q2)`,
-          options: ["Boundary assertion", "State transformation", "Asynchronous loop", "Buffer queue"],
-          correctIndex: 1,
-          explanation: "Generated based on content extracted from uploaded material."
-        }
-      ] : []
-    };
+    try {
+      setLoadingStep("Creating assessment record on server...");
 
-    addQuiz(newLocalQuiz);
-    setIsProcessing(false);
+      const payload = {
+        title: title.trim(),
+        topics: topics.trim() || title.trim(),
+        difficulty: difficulty,
+        time_limit: parseInt(timeLimit, 10) || 15,
+        timeLimit: parseInt(timeLimit, 10) || 15,
+        question_count: parseInt(questionsCount, 10) || 5,
+        questions_count: parseInt(questionsCount, 10) || 5,
+        questionsCount: parseInt(questionsCount, 10) || 5
+      };
 
-    if (file) {
-      navigate(`/staff/quiz/${newLocalQuiz.id}/preview`);
-    } else {
-      navigate(`/staff/quiz/${newLocalQuiz.id}/terminal`);
+      const createRes = await staffService.createQuiz(payload);
+      const quizId = createRes?.quiz_id || createRes?.id || createRes?.quiz?.id;
+
+      if (!quizId) {
+        throw new Error("Server created quiz but did not return a valid quiz ID.");
+      }
+
+      if (file) {
+        // Path A — Reference Material Flow
+        setLoadingStep("Reading material...");
+        await new Promise((r) => setTimeout(r, 600));
+
+        setLoadingStep("Extracting content...");
+        await new Promise((r) => setTimeout(r, 600));
+
+        setLoadingStep("Generating questions from material...");
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("material", file);
+
+        await staffService.generateMaterialQuiz(quizId, formData);
+
+        setLoadingStep("Quiz ready!");
+        await new Promise((r) => setTimeout(r, 400));
+        navigate(`/staff/quiz/${quizId}/preview`);
+      } else {
+        // Path B — AI Specification Flow
+        navigate(`/staff/quiz/${quizId}/terminal`);
+      }
+    } catch (err) {
+      console.error("[CreateQuiz] Error:", err);
+      setError(err.message || "Failed to create quiz on server.");
+      setIsProcessing(false);
     }
   };
 
@@ -88,7 +97,16 @@ export default function CreateQuiz() {
           ← Back to Staff Dashboard
         </button>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px", flexWrap: "wrap", gap: "16px" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "28px",
+            flexWrap: "wrap",
+            gap: "16px"
+          }}
+        >
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
               <span className="badge badge-accent">Faculty Generator</span>
@@ -117,7 +135,15 @@ export default function CreateQuiz() {
           </div>
         ) : (
           <form onSubmit={handleCreateSubmit} className="card" style={{ padding: "32px 36px" }}>
-            <h3 style={{ fontSize: "19px", fontWeight: "700", marginBottom: "22px", borderBottom: "1px solid var(--color-border)", paddingBottom: "12px" }}>
+            <h3
+              style={{
+                fontSize: "19px",
+                fontWeight: "700",
+                marginBottom: "22px",
+                borderBottom: "1px solid var(--color-border)",
+                paddingBottom: "12px"
+              }}
+            >
               Assessment Configuration
             </h3>
 
@@ -248,7 +274,18 @@ export default function CreateQuiz() {
               </div>
             </div>
 
-            <div style={{ marginTop: "24px", paddingTop: "20px", borderTop: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+            <div
+              style={{
+                marginTop: "24px",
+                paddingTop: "20px",
+                borderTop: "1px solid var(--color-border)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "16px"
+              }}
+            >
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <span className={`badge ${file ? "badge-success" : "badge-neutral"}`} style={{ fontSize: "11px" }}>
                   {file ? "⚡ REFERENCE MATERIAL MODE" : "🤖 AI SPECIFICATION MODE"}

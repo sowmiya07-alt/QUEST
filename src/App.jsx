@@ -27,7 +27,7 @@ function RequireRole({ role, children }) {
       <div className="app-shell" style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
         <div style={{ textAlign: "center" }}>
           <div className="pulse-dot" style={{ margin: "0 auto 16px" }} />
-          <p style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Verifying authentication...</p>
+          <p style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Verifying session with QUEST server...</p>
         </div>
       </div>
     );
@@ -37,13 +37,11 @@ function RequireRole({ role, children }) {
     return <Navigate to={role === "staff" || role === "teacher" ? "/staff/login" : "/student/login"} replace />;
   }
 
-  const isRoleMatch =
-    (role === "staff" || role === "teacher")
-      ? userRole === "staff" || userRole === "teacher"
-      : userRole === role;
+  const isStaffRole = userRole === "staff" || userRole === "teacher" || userRole === "faculty";
+  const isRoleMatch = (role === "staff" || role === "teacher") ? isStaffRole : userRole === "student";
 
   if (!isRoleMatch) {
-    return <Navigate to={userRole === "staff" || userRole === "teacher" ? "/staff/dashboard" : "/student/dashboard"} replace />;
+    return <Navigate to={isStaffRole ? "/staff/dashboard" : "/student/dashboard"} replace />;
   }
 
   return children;

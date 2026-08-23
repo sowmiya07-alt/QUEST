@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import studentService from "../services/studentService";
 import Navbar from "../components/Navbar";
 
 export default function JoinQuiz() {
@@ -9,24 +9,24 @@ export default function JoinQuiz() {
   const [loading, setLoading] = useState(false);
   const [joinedQuiz, setJoinedQuiz] = useState(null);
   const navigate = useNavigate();
-  const { quizzes } = useAuth();
 
-  const handleJoin = (e) => {
+  const handleJoin = async (e) => {
     e.preventDefault();
     setError("");
     const trimmed = code.trim().toUpperCase();
     if (!trimmed) return;
 
     setLoading(true);
-    const match = (quizzes || []).find(
-      (q) => String(q.code || q.quiz_code || "").toUpperCase() === trimmed
-    );
-    if (match) {
-      setJoinedQuiz(match);
-    } else {
-      setError(`No active assessment found with code "${trimmed}". Please check the code and try again.`);
+    try {
+      const res = await studentService.joinQuiz(trimmed);
+      const quizData = res?.quiz || res?.data || res;
+      setJoinedQuiz(quizData);
+    } catch (err) {
+      console.error("[JoinQuiz] Error joining quiz:", err);
+      setError(err.message || `No active assessment found with code "${trimmed}".`);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -52,7 +52,7 @@ export default function JoinQuiz() {
               </p>
               <button
                 className="btn btn-primary btn-full btn-lg"
-                onClick={() => navigate(`/student/quiz/${joinedQuiz.id}`)}
+                onClick={() => navigate(`/student/quiz/${joinedQuiz.id || joinedQuiz.quiz_id}`)}
               >
                 Start Quiz Assessment →
               </button>
@@ -70,7 +70,13 @@ export default function JoinQuiz() {
                     setError("");
                   }}
                   placeholder="e.g. QUIZ-9081"
-                  style={{ textTransform: "uppercase", fontFamily: "var(--font-mono)", fontSize: "18px", textAlign: "center", letterSpacing: "0.1em" }}
+                  style={{
+                    textTransform: "uppercase",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "18px",
+                    textAlign: "center",
+                    letterSpacing: "0.1em"
+                  }}
                   required
                   autoFocus
                 />

@@ -42,7 +42,7 @@ export default function AnimatedAuth({ initialMode = "login", initialRole = "tea
   const [isLoading, setIsLoading] = useState(false);
 
   const isTeacher = role === "teacher";
-  const isRegister = mode === "register";
+  const isRegister = mode === "register" && !isTeacher;
 
   const quotesList = isTeacher ? QUOTES_TEACHER : QUOTES_STUDENT;
   const currentQuote = quotesList[activeQuoteIndex % quotesList.length];
@@ -80,7 +80,7 @@ export default function AnimatedAuth({ initialMode = "login", initialRole = "tea
         navigate(isTeacher ? "/staff/dashboard" : "/student/dashboard");
       }, 500);
     } catch (err) {
-      console.error("[AnimatedAuth] Login error:", err);
+      console.error("[AnimatedAuth] Auth error:", err);
       setIsLoading(false);
       setError(err.message || "Authentication error.");
     }
@@ -155,6 +155,7 @@ export default function AnimatedAuth({ initialMode = "login", initialRole = "tea
               className={`clean-role-btn ${isTeacher ? "active" : ""}`}
               onClick={() => {
                 setRole("teacher");
+                setMode("login");
                 setError("");
                 setActiveQuoteIndex(0);
               }}
@@ -178,13 +179,13 @@ export default function AnimatedAuth({ initialMode = "login", initialRole = "tea
           <div className="form-header-box">
             <h2 className="form-title">
               {isRegister
-                ? `Create ${isTeacher ? "Faculty" : "Student"} Account`
+                ? "Create Student Account"
                 : `Sign In to ${isTeacher ? "Faculty Console" : "Student Portal"}`}
             </h2>
             <p className="form-subtitle">
               {isRegister
-                ? `Enter your details to configure your ${isTeacher ? "faculty" : "student"} profile.`
-                : `Welcome back. Enter your account credentials to access your dashboard.`}
+                ? "Enter your details to configure your student profile."
+                : "Welcome back. Enter your account credentials to access your dashboard."}
             </p>
           </div>
 
@@ -198,12 +199,10 @@ export default function AnimatedAuth({ initialMode = "login", initialRole = "tea
 
           {/* Clean Form */}
           <form onSubmit={handleSubmit} className="auth-form-fields">
-            {/* Full Name field (Only in Register mode) */}
+            {/* Full Name field (Only in Student Register mode) */}
             {isRegister && (
               <div className="form-group">
-                <label className="label">
-                  {isTeacher ? "Faculty Full Name *" : "Student Full Name *"}
-                </label>
+                <label className="label">Student Full Name *</label>
                 <input
                   className="input"
                   type="text"
@@ -211,6 +210,7 @@ export default function AnimatedAuth({ initialMode = "login", initialRole = "tea
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Enter full name"
                   required={isRegister}
+                  autoFocus
                 />
               </div>
             )}
@@ -218,14 +218,18 @@ export default function AnimatedAuth({ initialMode = "login", initialRole = "tea
             {/* Identity / Email / Student Code */}
             <div className="form-group">
               <label className="label">
-                {isTeacher ? "Institutional Email or User ID *" : "Student Code or Email ID *"}
+                {isTeacher
+                  ? "Faculty User Code or Email *"
+                  : isRegister
+                  ? "Email Address *"
+                  : "Student Code or Email *"}
               </label>
               <input
                 className="input"
-                type={isTeacher ? "email" : "text"}
+                type={isRegister ? "email" : "text"}
                 value={identity}
                 onChange={(e) => setIdentity(e.target.value)}
-                placeholder={isTeacher ? "Enter email address or faculty ID" : "Enter student code or email"}
+                placeholder={isTeacher ? "Enter faculty code (e.g. staff)" : isRegister ? "Enter email address" : "Enter student code (e.g. STU-1234)"}
                 required
               />
             </div>
@@ -262,7 +266,7 @@ export default function AnimatedAuth({ initialMode = "login", initialRole = "tea
               {isLoading ? (
                 "Authenticating..."
               ) : isRegister ? (
-                `Create ${isTeacher ? "Faculty" : "Student"} Account →`
+                "Create Student Account →"
               ) : (
                 `Sign In as ${isTeacher ? "Faculty" : "Student"} →`
               )}
@@ -271,7 +275,11 @@ export default function AnimatedAuth({ initialMode = "login", initialRole = "tea
 
           {/* Clean Bottom Mode Toggle Link */}
           <div className="form-footer-toggle">
-            {isRegister ? (
+            {isTeacher ? (
+              <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>
+                Faculty accounts are managed by the administrator.
+              </span>
+            ) : isRegister ? (
               <span>
                 Already registered?{" "}
                 <button type="button" className="text-link-btn" onClick={() => setMode("login")}>
@@ -281,7 +289,14 @@ export default function AnimatedAuth({ initialMode = "login", initialRole = "tea
             ) : (
               <span>
                 Don't have an account?{" "}
-                <button type="button" className="text-link-btn" onClick={() => setMode("register")}>
+                <button
+                  type="button"
+                  className="text-link-btn"
+                  onClick={() => {
+                    setRole("student");
+                    setMode("register");
+                  }}
+                >
                   Create an account
                 </button>
               </span>

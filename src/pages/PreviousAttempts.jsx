@@ -1,22 +1,32 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import studentService from "../services/studentService";
 import Navbar from "../components/Navbar";
 
 export default function PreviousAttempts() {
   const navigate = useNavigate();
-  const { attempts: localAttempts } = useAuth();
   const [attempts, setAttempts] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const fetchAttempts = () => {
-    setAttempts(localAttempts || []);
-  };
+  const fetchAttempts = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const data = await studentService.getDashboard();
+      const attemptsList = data?.previous_attempts || data?.attempts || [];
+      setAttempts(attemptsList);
+    } catch (err) {
+      console.error("[PreviousAttempts] Error fetching attempts:", err);
+      setError(err.message || "Failed to load attempt history.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchAttempts();
-  }, [localAttempts]);
+  }, [fetchAttempts]);
 
   return (
     <div className="app-shell">
@@ -32,7 +42,9 @@ export default function PreviousAttempts() {
         {error && (
           <div className="form-error" style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span>{error}</span>
-            <button className="btn btn-ghost btn-sm" onClick={fetchAttempts}>Retry</button>
+            <button className="btn btn-ghost btn-sm" onClick={fetchAttempts}>
+              Retry
+            </button>
           </div>
         )}
 

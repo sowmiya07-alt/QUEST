@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import studentService from "../services/studentService";
 import Navbar from "../components/Navbar";
 
 export default function TakeQuiz() {
   const { quizId } = useParams();
   const navigate = useNavigate();
-  const { user, quizzes, addAttempt } = useAuth();
 
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -17,34 +16,64 @@ export default function TakeQuiz() {
   const [userAnswers, setUserAnswers] = useState({});
   const [timeLeft, setTimeLeft] = useState(15 * 60);
 
-  useEffect(() => {
-    async function loadQuiz() {
-      if (!quizId) return;
-      try {
-        setLoading(true);
-        setError("");
-        const res = await studentService.getQuiz(quizId);
-        const data = res?.quiz || res?.data || res;
-        setQuiz(data);
+  const loadQuiz = useCallback(async () => {
+    if (!quizId) return;
+    try {
+      setLoading(true);
+      setError("");
+      const res = await studentService.getQuiz(quizId);
 
-        const durationMinutes = data?.time_limit || data?.timeLimit || 15;
-        setTimeLeft(durationMinutes * 60);
-      } catch (err) {
-        console.warn("[TakeQuiz] Backend offline. Loading quiz from local AuthContext.");
-        const match = (quizzes || []).find(q => String(q.id) === String(quizId) || String(q.quiz_id) === String(quizId));
-        if (match) {
-          setQuiz(match);
-          const durationMinutes = match?.time_limit || match?.timeLimit || 15;
-          setTimeLeft(durationMinutes * 60);
-        } else {
-          setError(err.message || "Failed to load quiz questions.");
-        }
-      } finally {
-        setLoading(false);
+      let merged = {};
+      if (res && typeof res === "object") {
+        const quizObj = res.quiz || res.data?.quiz || res.data || {};
+        const questionsList =
+          res.questions ||
+          res.questions_data ||
+          res.quiz_questions ||
+          quizObj.questions ||
+          quizObj.questions_data ||
+          quizObj.quiz_questions ||
+          [];
+
+        merged = {
+          ...res,
+          ...quizObj,
+          questions: questionsList
+        };
       }
+      setQuiz(merged);
+
+      const durationMinutes = merged?.time_limit || merged?.timeLimit || 15;
+      setTimeLeft(durationMinutes * 60);
+    } catch (err) {
+      console.error("[TakeQuiz] Error loading quiz:", err);
+      setError(err.message || "Failed to load quiz questions.");
+    } finally {
+      setLoading(false);
     }
+  }, [quizId]);
+
+  useEffect(() => {
     loadQuiz();
-  }, [quizId, quizzes]);
+  }, [loadQuiz]);
+
+  const handleSubmitQuiz = useCallback(async () => {
+    if (!quizId || submitting) return;
+    try {
+      setSubmitting(true);
+      const res = await studentService.submitQuiz(quizId, { answers: userAnswers });
+      const attemptId = res?.attempt_id || res?.id || res?.attempt?.id;
+      if (attemptId) {
+        navigate(`/student/result/${attemptId}`);
+      } else {
+        navigate("/student/dashboard");
+      }
+    } catch (err) {
+      console.error("[TakeQuiz] Submission error:", err);
+      setError(err.message || "Failed to submit assessment answers.");
+      setSubmitting(false);
+    }
+  }, [quizId, submitting, userAnswers, navigate]);
 
   // Countdown timer
   useEffect(() => {
@@ -60,91 +89,63 @@ export default function TakeQuiz() {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [quiz, submitting, userAnswers]);
+  }, [quiz, submitting, handleSubmitQuiz]);
 
-  // Normalize questions for student viewing (sanitizing any correct answers)
-  const normalizeQuestions = (rawQuestions = []) => {
-    return rawQuestions.map((q, idx) => {
+  // Normalize questions for student viewing (sanitizing any correct answers or explanations)
+  const normalizeQuestions = (rawInput) => {
+    let list = rawInput;
+    if (typeof list === "string") {
+      try {
+        list = JSON.parse(list);
+      } catch (e) {
+        list = [];
+      }
+    }
+
+    if (list && typeof list === "object" && !Array.isArray(list)) {
+      list = list.questions || list.questions_data || list.quiz || list.data || Object.values(list);
+      if (typeof list === "string") {
+        try {
+          list = JSON.parse(list);
+        } catch (e) {
+          list = [];
+        }
+      }
+    }
+
+    if (!Array.isArray(list)) return [];
+
+    return list.map((q, idx) => {
       const qId = q.id ?? idx + 1;
-      const qText = q.question_text || q.question || `Question ${idx + 1}`;
+      const qText = q.question_text || q.question || q.text || q.title || `Question ${idx + 1}`;
       let options = [];
       if (Array.isArray(q.options)) {
         options = q.options.map((opt, oIdx) => ({
           key: `option_${String.fromCharCode(97 + oIdx)}`,
           label: String.fromCharCode(65 + oIdx),
-          text: typeof opt === "string" ? opt : (opt.text || opt.label)
+          text: typeof opt === "string" ? opt : opt.text || opt.label || JSON.stringify(opt)
+        }));
+      } else if (q.options && typeof q.options === "object") {
+        options = Object.keys(q.options).map((key, oIdx) => ({
+          key: key.startsWith("option_") ? key : `option_${String.fromCharCode(97 + oIdx)}`,
+          label: String.fromCharCode(65 + oIdx),
+          text: String(q.options[key])
         }));
       } else {
         options = [
-          { key: "option_a", label: "A", text: q.option_a || "Option A" },
-          { key: "option_b", label: "B", text: q.option_b || "Option B" },
-          { key: "option_c", label: "C", text: q.option_c || "Option C" },
-          { key: "option_d", label: "D", text: q.option_d || "Option D" }
-        ].filter(opt => !!opt.text);
+          { key: "option_a", label: "A", text: q.option_a || q.a || "" },
+          { key: "option_b", label: "B", text: q.option_b || q.b || "" },
+          { key: "option_c", label: "C", text: q.option_c || q.c || "" },
+          { key: "option_d", label: "D", text: q.option_d || q.d || "" }
+        ].filter((opt) => !!opt.text);
       }
 
       return {
         id: qId,
         question: qText,
-        options,
-        rawQuestion: q
+        options
       };
     });
-  };
-
-  const handleSubmit = (e) => {
-    if (e) e.preventDefault();
-    setSubmitting(true);
-
-    const normQs = normalizeQuestions(quiz?.questions || []);
-    let correctCount = 0;
-
-    const detailedAnswers = normQs.map((q) => {
-      const selectedKey = userAnswers[q.id];
-      let isCorrect = false;
-
-      const raw = q.rawQuestion || {};
-      const correctIndex = raw.correctIndex ?? 0;
-      const correctKey = `option_${String.fromCharCode(97 + correctIndex)}`;
-      const correctAnswerStr = raw.correct_answer || (raw.options ? raw.options[correctIndex] : null);
-
-      if (selectedKey === correctKey || selectedKey === correctAnswerStr || selectedKey === raw.correct_answer) {
-        isCorrect = true;
-        correctCount++;
-      }
-
-      const selectedOptionObj = q.options.find(o => o.key === selectedKey);
-      const selectedText = selectedOptionObj ? selectedOptionObj.text : (selectedKey || "Not Answered");
-      const correctText = correctAnswerStr || (q.options[correctIndex] ? q.options[correctIndex].text : "Option A");
-
-      return {
-        id: q.id,
-        question_text: q.question,
-        is_correct: isCorrect,
-        student_answer: selectedText,
-        correct_answer: correctText,
-        explanation: raw.explanation || "Diagnostic analysis generated."
-      };
-    });
-
-    const totalCount = normQs.length || 1;
-    const scorePercentage = Math.round((correctCount / totalCount) * 100);
-
-    const newAttempt = {
-      attemptId: `att-${Date.now()}`,
-      quizId: quizId,
-      quizTitle: quiz?.title || "Assessment",
-      studentCode: user?.code || "STU-8820",
-      studentName: user?.name || "Student",
-      score: scorePercentage,
-      correctCount,
-      total: totalCount,
-      answers: detailedAnswers,
-      submitted_at: new Date().toISOString().replace("T", " ").slice(0, 16)
-    };
-
-    addAttempt(newAttempt);
-    navigate(`/student/result/${newAttempt.attemptId}`);
   };
 
   const formatTime = (secs) => {
@@ -183,7 +184,7 @@ export default function TakeQuiz() {
     );
   }
 
-  const questions = normalizeQuestions(quiz?.questions || []);
+  const questions = normalizeQuestions(quiz?.questions || quiz?.questions_data || []);
   if (questions.length === 0) {
     return (
       <div className="app-shell">

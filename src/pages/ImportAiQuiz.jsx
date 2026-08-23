@@ -1,19 +1,18 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import staffService from "../services/staffService";
 import Navbar from "../components/Navbar";
 
 export default function ImportAiQuiz() {
   const { quizId } = useParams();
   const navigate = useNavigate();
-  const { quizzes, addQuiz } = useAuth();
 
   const [jsonText, setJsonText] = useState("");
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleImport = (e) => {
+  const handleImport = async (e) => {
     e.preventDefault();
     if (!jsonText.trim()) return;
 
@@ -24,7 +23,7 @@ export default function ImportAiQuiz() {
 
     setError("");
     setLoading(true);
-    setStatusMessage("Validating AI JSON payload...");
+    setStatusMessage("Validating & importing AI JSON payload to server...");
 
     let payload;
     try {
@@ -39,35 +38,18 @@ export default function ImportAiQuiz() {
       return;
     }
 
-    const rawQs = payload.questions || (Array.isArray(payload) ? payload : []);
-    let targetQuiz = (quizzes || []).find((q) => String(q.id) === String(quizId));
+    try {
+      await staffService.importAiQuiz(quizId, payload);
 
-    if (!targetQuiz) {
-      const generatedCode = "QUIZ-" + Math.floor(1000 + Math.random() * 9000);
-      targetQuiz = {
-        id: quizId,
-        code: generatedCode,
-        title: payload.title || "AI Generated Quiz",
-        difficulty: payload.difficulty || "Medium",
-        questionsCount: rawQs.length,
-        status: "ACTIVE",
-        assigned: true,
-        questions: rawQs
-      };
-      addQuiz(targetQuiz);
-    } else {
-      if (rawQs.length > 0) {
-        targetQuiz.questions = rawQs;
-        targetQuiz.questionsCount = rawQs.length;
-      }
-      targetQuiz.status = "ACTIVE";
-      targetQuiz.assigned = true;
+      setStatusMessage("✔ Quiz assessment questions imported successfully! Redirecting to preview...");
+      setTimeout(() => {
+        navigate(`/staff/quiz/${quizId}/preview`);
+      }, 600);
+    } catch (err) {
+      console.error("[ImportAiQuiz] Error importing questions:", err);
+      setError(err.message || "Failed to import AI questions to QUEST server.");
+      setLoading(false);
     }
-
-    setStatusMessage("✔ Quiz assessment generated successfully! Redirecting...");
-    setTimeout(() => {
-      navigate(`/staff/quiz/${quizId}/preview`);
-    }, 600);
   };
 
   return (
@@ -116,7 +98,7 @@ export default function ImportAiQuiz() {
                     setJsonText(e.target.value);
                     setError("");
                   }}
-                  placeholder='Paste AI JSON response here e.g. { "questions": [ { "question_text": "...", "option_a": "...", ... } ] }'
+                  placeholder='Paste AI JSON response here e.g. { "title": "...", "questions": [ { "question_text": "...", "option_a": "...", "option_b": "...", "option_c": "...", "option_d": "...", "correct_answer": "option_a", "explanation": "..." } ] }'
                   required
                   style={{ fontFamily: "var(--font-mono)", fontSize: "13px" }}
                   autoFocus
@@ -131,7 +113,7 @@ export default function ImportAiQuiz() {
                   ← View Specification Prompt
                 </button>
                 <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
-                  ⚡ Generate Quiz
+                  ⚡ Import & Generate Quiz
                 </button>
               </div>
             </form>

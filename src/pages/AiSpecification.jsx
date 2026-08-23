@@ -1,39 +1,65 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import staffService from "../services/staffService";
 import Navbar from "../components/Navbar";
 
 export default function AiSpecification() {
   const { quizId } = useParams();
   const navigate = useNavigate();
-  const { quizzes } = useAuth();
 
-  const [quiz, setQuiz] = useState(null);
+  const [specData, setSpecData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (quizId) {
-      const match = (quizzes || []).find((q) => String(q.id) === String(quizId));
-      if (match) {
-        setQuiz(match);
-      } else {
-        setQuiz({
-          id: quizId,
-          title: "Sample Assessment",
-          topics: "General Assessment Topics",
-          difficulty: "Medium",
-          questionsCount: 5
-        });
+    async function loadSpecification() {
+      if (!quizId) {
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        setError("");
+        const res = await staffService.generateAiSpecification(quizId, {});
+        setSpecData(res);
+      } catch (err) {
+        console.warn("[AiSpecification] Note from server:", err.message);
+        // If preview is available, fetch details to show accurate specification
+        try {
+          const preview = await staffService.getQuizPreview(quizId);
+          setSpecData({
+            title: preview.title || "Assessment Specification",
+            difficulty: preview.difficulty || "Medium",
+            questions_count: preview.questions_count || 5,
+            prompt: preview.ai_prompt || preview.specification
+          });
+        } catch {
+          setError(err.message || "Failed to generate AI specification.");
+        }
+      } finally {
+        setLoading(false);
       }
     }
-  }, [quizId, quizzes]);
+    loadSpecification();
+  }, [quizId]);
 
-  const quizTitle = quiz?.title || "Quiz Assessment";
-  const quizTopics = quiz?.topics || quizTitle;
-  const difficulty = quiz?.difficulty || "Medium";
-  const questionCount = quiz?.questionsCount || quiz?.question_count || 5;
+  const quizTitle = specData?.title || specData?.quiz_title || "Quiz Assessment";
+  const difficulty = specData?.difficulty || "Medium";
+  const questionCount = specData?.question_count || specData?.questions_count || 5;
 
-  const generatedPrompt = `Generate a ${questionCount}-question multiple choice quiz on topic "${quizTopics}" with ${difficulty} difficulty.
+  const promptText =
+    typeof specData?.prompt === "string"
+      ? specData.prompt
+      : specData?.ai_specification
+      ? typeof specData.ai_specification === "string"
+        ? specData.ai_specification
+        : JSON.stringify(specData.ai_specification, null, 2)
+      : specData?.specification
+      ? typeof specData.specification === "string"
+        ? specData.specification
+        : JSON.stringify(specData.specification, null, 2)
+      : `Generate a ${questionCount}-question multiple choice quiz on topic "${quizTitle}" with ${difficulty} difficulty.
 
 Please return ONLY a raw JSON object matching this exact schema:
 {
@@ -54,7 +80,7 @@ Please return ONLY a raw JSON object matching this exact schema:
 }`;
 
   const handleCopyPrompt = () => {
-    navigator.clipboard.writeText(generatedPrompt);
+    navigator.clipboard.writeText(promptText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
@@ -82,57 +108,98 @@ Please return ONLY a raw JSON object matching this exact schema:
           </p>
         </div>
 
-        {/* Clean Prompt Display Card */}
-        <div className="card" style={{ padding: "28px 32px", marginBottom: "24px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "12px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ fontSize: "18px" }}>🤖</span>
-              <strong style={{ fontSize: "15px" }}>{quizTitle} Specification</strong>
-            </div>
-
-            <button
-              type="button"
-              className={`btn ${copied ? "btn-secondary" : "btn-primary"} btn-md`}
-              onClick={handleCopyPrompt}
-              style={{ fontWeight: "700" }}
-            >
-              {copied ? "✓ Copied to Clipboard!" : "📋 Copy Prompt for AI"}
-            </button>
+        {error && (
+          <div className="form-error" style={{ marginBottom: "16px" }}>
+            {error}
           </div>
+        )}
 
-          <div
-            style={{
-              background: "var(--color-elevated, #0e1216)",
-              border: "1px solid var(--color-border, #2a2f3a)",
-              borderRadius: "8px",
-              padding: "20px",
-              fontFamily: "var(--font-mono, monospace)",
-              fontSize: "13px",
-              lineHeight: "1.6",
-              color: "var(--color-accent, #646cff)",
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-              maxHeight: "360px",
-              overflowY: "auto"
-            }}
-          >
-            {generatedPrompt}
-          </div>
-        </div>
-
-        {/* Step Guide & Next Action Button */}
-        <div className="card" style={{ padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px", background: "var(--color-elevated)" }}>
-          <div>
-            <div style={{ fontWeight: "700", fontSize: "14px", marginBottom: "2px" }}>Ready to generate your quiz?</div>
-            <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", margin: 0 }}>
-              After copying and pasting the prompt into Claude/ChatGPT, click below to paste the AI response.
+        {loading ? (
+          <div className="card" style={{ padding: "48px", textAlign: "center" }}>
+            <div className="pulse-dot" style={{ margin: "0 auto 16px" }} />
+            <p style={{ color: "var(--color-text-secondary)", fontSize: "15px" }}>
+              Synthesizing AI specification prompt...
             </p>
           </div>
+        ) : (
+          <>
+            {/* Clean Prompt Display Card */}
+            <div className="card" style={{ padding: "28px 32px", marginBottom: "24px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "16px",
+                  flexWrap: "wrap",
+                  gap: "12px"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ fontSize: "18px" }}>🤖</span>
+                  <strong style={{ fontSize: "15px" }}>{quizTitle} Specification</strong>
+                </div>
 
-          <Link to={`/staff/quiz/${quizId}/import`} className="btn btn-primary btn-lg">
-            Next: Paste AI Response & Generate Quiz →
-          </Link>
-        </div>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    type="button"
+                    className={`btn ${copied ? "btn-secondary" : "btn-primary"} btn-md`}
+                    onClick={handleCopyPrompt}
+                    style={{ fontWeight: "700" }}
+                  >
+                    {copied ? "✓ Copied to Clipboard!" : "📋 Copy JSON Specification"}
+                  </button>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: "var(--color-elevated, #0e1216)",
+                  border: "1px solid var(--color-border, #2a2f3a)",
+                  borderRadius: "8px",
+                  padding: "20px",
+                  fontFamily: "var(--font-mono, monospace)",
+                  fontSize: "13px",
+                  lineHeight: "1.6",
+                  color: "var(--color-accent, #646cff)",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  maxHeight: "360px",
+                  overflowY: "auto"
+                }}
+              >
+                {promptText}
+              </div>
+            </div>
+
+            {/* Step Guide & Next Action Button */}
+            <div
+              className="card"
+              style={{
+                padding: "20px 24px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "16px",
+                background: "var(--color-elevated)"
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: "700", fontSize: "14px", marginBottom: "2px" }}>
+                  Ready to import your quiz questions?
+                </div>
+                <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", margin: 0 }}>
+                  After copying and running the prompt in your external AI tool, click below to paste the returned JSON.
+                </p>
+              </div>
+
+              <Link to={`/staff/quiz/${quizId}/import`} className="btn btn-primary btn-lg">
+                Next: Import AI JSON Response →
+              </Link>
+            </div>
+          </>
+        )}
       </main>
     </div>
   );

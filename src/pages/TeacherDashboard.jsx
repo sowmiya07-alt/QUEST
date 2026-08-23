@@ -1,50 +1,103 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import staffService from "../services/staffService";
 import Navbar from "../components/Navbar";
 
 export default function TeacherDashboard() {
-  const { user, quizzes: ctxQuizzes, attempts: ctxAttempts, deleteQuiz } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [dashboardData, setDashboardData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
 
-  const fetchDashboard = () => {
-    const fallbackQuizzes = ctxQuizzes || [];
-    const fallbackAttempts = ctxAttempts || [];
-    const activeCount = fallbackQuizzes.filter(q => q.status === "ACTIVE" || q.assigned).length;
-    const avgScore = fallbackAttempts.length
-      ? Math.round(fallbackAttempts.reduce((acc, curr) => acc + (curr.score ?? 0), 0) / fallbackAttempts.length)
-      : 0;
-
-    setDashboardData({
-      quizzes: fallbackQuizzes,
-      attempts: fallbackAttempts,
-      total_quizzes: fallbackQuizzes.length,
-      active_quizzes: activeCount,
-      total_attempts: fallbackAttempts.length,
-      average_score: avgScore
-    });
-  };
+  const fetchDashboard = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const data = await staffService.getDashboard();
+      setDashboardData(data);
+    } catch (err) {
+      console.error("[TeacherDashboard] Error loading dashboard:", err);
+      setError(err.message || "Failed to load faculty dashboard.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchDashboard();
-  }, [ctxQuizzes, ctxAttempts]);
+  }, [fetchDashboard]);
 
-  const totalQuizzes = dashboardData?.total_quizzes ?? dashboardData?.quizzes?.length ?? 0;
-  const activeQuizzes = dashboardData?.active_quizzes ?? dashboardData?.active_count ?? (dashboardData?.quizzes ? dashboardData.quizzes.filter(q => q.status === "ACTIVE" || q.assigned).length : 0);
-  const totalAttempts = dashboardData?.total_attempts ?? dashboardData?.attempts?.length ?? dashboardData?.recent_attempts?.length ?? 0;
-  const averageScore = dashboardData?.average_score ?? dashboardData?.avg_score ?? 0;
+  const totalQuizzes =
+    dashboardData?.total_quizzes ??
+    dashboardData?.quizzes?.length ??
+    dashboardData?.recent_quizzes?.length ??
+    0;
+
+  const activeQuizzes =
+    dashboardData?.active_quizzes ??
+    dashboardData?.active_count ??
+    (dashboardData?.quizzes
+      ? dashboardData.quizzes.filter((q) => q.status === "ACTIVE" || q.is_active || q.assigned).length
+      : 0);
+
+  const totalAttempts =
+    dashboardData?.total_attempts ??
+    dashboardData?.attempts?.length ??
+    dashboardData?.recent_attempts?.length ??
+    dashboardData?.submissions?.length ??
+    0;
+
+  const averageScore =
+    dashboardData?.average_score ??
+    dashboardData?.avg_score ??
+    (dashboardData?.attempts?.length
+      ? Math.round(
+          dashboardData.attempts.reduce((acc, curr) => acc + (curr.score ?? curr.percentage ?? 0), 0) /
+            dashboardData.attempts.length
+        )
+      : 0);
+
   const quizzes = dashboardData?.quizzes || dashboardData?.recent_quizzes || [];
-  const attempts = dashboardData?.attempts || dashboardData?.recent_attempts || [];
+  const attempts = dashboardData?.attempts || dashboardData?.recent_attempts || dashboardData?.submissions || [];
+
+  const handleToggleActive = async (quiz) => {
+    const quizId = quiz.id || quiz.quiz_id;
+    const isCurrentlyActive = quiz.status === "ACTIVE" || quiz.is_active || quiz.assigned;
+    try {
+      if (isCurrentlyActive) {
+        await staffService.closeQuiz(quizId);
+        setActionMessage(`Quiz "${quiz.title || quizId}" closed.`);
+      } else {
+        await staffService.activateQuiz(quizId);
+        setActionMessage(`Quiz "${quiz.title || quizId}" activated!`);
+      }
+      setTimeout(() => setActionMessage(""), 3000);
+      fetchDashboard();
+    } catch (err) {
+      alert(err.message || "Failed to update quiz status.");
+    }
+  };
 
   return (
     <div className="app-shell">
       <Navbar />
       <main className="app-content container">
         {/* Top Header */}
-        <div className="dashboard-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px", flexWrap: "wrap", gap: "16px" }}>
+        <div
+          className="dashboard-header"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "28px",
+            flexWrap: "wrap",
+            gap: "16px"
+          }}
+        >
           <div>
             <h1 style={{ fontSize: "28px", fontWeight: "800", letterSpacing: "-0.02em" }}>Faculty Console</h1>
             <p style={{ color: "var(--color-text-secondary)", fontSize: "14px", marginTop: "4px" }}>
@@ -58,12 +111,30 @@ export default function TeacherDashboard() {
           </div>
         </div>
 
+        {actionMessage && (
+          <div
+            className="badge badge-success"
+            style={{ padding: "10px 16px", marginBottom: "16px", display: "block", textTransform: "none", fontSize: "13px" }}
+          >
+            {actionMessage}
+          </div>
+        )}
 
+        {error && (
+          <div className="form-error" style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>{error}</span>
+            <button className="btn btn-ghost btn-sm" onClick={fetchDashboard}>
+              Retry
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <div className="card" style={{ padding: "48px", textAlign: "center" }}>
             <div className="pulse-dot" style={{ margin: "0 auto 16px" }} />
-            <p style={{ color: "var(--color-text-secondary)", fontSize: "15px" }}>Loading dashboard metrics and assessments...</p>
+            <p style={{ color: "var(--color-text-secondary)", fontSize: "15px" }}>
+              Loading dashboard metrics and assessments from QUEST server...
+            </p>
           </div>
         ) : (
           <>
@@ -103,7 +174,15 @@ export default function TeacherDashboard() {
             </div>
 
             {/* Managed Quizzes Section */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "40px", marginBottom: "16px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginTop: "40px",
+                marginBottom: "16px"
+              }}
+            >
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                 <h2 style={{ fontSize: "20px", fontWeight: "700" }}>Managed Quizzes</h2>
                 <span className="badge badge-neutral">{quizzes.length} Total</span>
@@ -133,22 +212,20 @@ export default function TeacherDashboard() {
                     quizzes.map((quiz) => {
                       const quizId = quiz.id || quiz.quiz_id;
                       const quizCode = quiz.code || quiz.quiz_code || "DRAFT";
-                      const questionCount = quiz.questions_count ?? quiz.questionsCount ?? (quiz.questions ? quiz.questions.length : 0);
+                      const questionCount =
+                        quiz.questions_count ?? quiz.questionsCount ?? (quiz.questions ? quiz.questions.length : 0);
                       const isQuizActive = quiz.status === "ACTIVE" || quiz.is_active || quiz.assigned;
 
                       const handleCopyCode = () => {
-                        navigator.clipboard.writeText(quizCode);
-                        alert(`Copied quiz code ${quizCode} to clipboard!`);
-                      };
-
-                      const handleAssignQuiz = () => {
-                        quiz.status = isQuizActive ? "CLOSED" : "ACTIVE";
-                        quiz.assigned = !isQuizActive;
-                        fetchDashboard();
+                        if (quizCode && quizCode !== "DRAFT") {
+                          navigator.clipboard.writeText(quizCode);
+                          alert(`Copied quiz code ${quizCode} to clipboard!`);
+                        }
                       };
 
                       const handleDownload = () => {
-                        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(quiz, null, 2));
+                        const dataStr =
+                          "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(quiz, null, 2));
                         const anchor = document.createElement("a");
                         anchor.setAttribute("href", dataStr);
                         anchor.setAttribute("download", `${(quiz.title || "quiz").replace(/[^a-z0-9]/gi, "_")}_spec.json`);
@@ -157,32 +234,39 @@ export default function TeacherDashboard() {
                         anchor.remove();
                       };
 
-                      const handleDeleteQuiz = () => {
-                        if (window.confirm(`Are you sure you want to delete quiz "${quiz.title}" (${quizCode})?`)) {
-                          deleteQuiz(quizId);
-                          fetchDashboard();
-                        }
-                      };
-
                       return (
                         <tr key={quizId}>
                           <td>
                             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                              <span className="badge badge-accent" style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}>
+                              <span
+                                className="badge badge-accent"
+                                style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}
+                              >
                                 {quizCode}
                               </span>
-                              <button
-                                type="button"
-                                className="btn btn-ghost btn-sm"
-                                style={{ padding: "2px 6px", fontSize: "10px" }}
-                                onClick={handleCopyCode}
-                                title="Copy Quiz Access Code"
-                              >
-                                📋
-                              </button>
+                              {quizCode !== "DRAFT" && (
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-sm"
+                                  style={{ padding: "2px 6px", fontSize: "10px" }}
+                                  onClick={handleCopyCode}
+                                  title="Copy Quiz Access Code"
+                                >
+                                  📋
+                                </button>
+                              )}
                             </div>
                           </td>
-                          <td style={{ fontWeight: "600", maxWidth: "240px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={quiz.title}>
+                          <td
+                            style={{
+                              fontWeight: "600",
+                              maxWidth: "240px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap"
+                            }}
+                            title={quiz.title}
+                          >
                             {quiz.title}
                           </td>
                           <td>
@@ -192,7 +276,10 @@ export default function TeacherDashboard() {
                           </td>
                           <td style={{ textAlign: "center" }}>{questionCount}</td>
                           <td>
-                            <span className={`badge ${isQuizActive ? "badge-success" : "badge-neutral"}`} style={{ fontSize: "11px" }}>
+                            <span
+                              className={`badge ${isQuizActive ? "badge-success" : "badge-neutral"}`}
+                              style={{ fontSize: "11px" }}
+                            >
                               {quiz.status || (isQuizActive ? "ACTIVE" : "DRAFT")}
                             </span>
                           </td>
@@ -200,10 +287,10 @@ export default function TeacherDashboard() {
                             <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
                               <button
                                 className={`btn ${isQuizActive ? "btn-secondary" : "btn-primary"} btn-sm`}
-                                onClick={handleAssignQuiz}
-                                title={isQuizActive ? "Unassign Quiz" : "Assign Quiz to Students"}
+                                onClick={() => handleToggleActive(quiz)}
+                                title={isQuizActive ? "Close Quiz" : "Activate Quiz for Students"}
                               >
-                                {isQuizActive ? "Assigned ✓" : "Assign Quiz"}
+                                {isQuizActive ? "Active ✓ (Close)" : "Activate"}
                               </button>
                               <button
                                 className="btn btn-secondary btn-sm"
@@ -226,15 +313,6 @@ export default function TeacherDashboard() {
                               >
                                 Score Cards
                               </button>
-                              <button
-                                type="button"
-                                className="btn btn-ghost btn-sm"
-                                style={{ color: "#ff4d4f", borderColor: "rgba(255,77,79,0.3)" }}
-                                onClick={handleDeleteQuiz}
-                                title="Delete Quiz Assessment"
-                              >
-                                🗑️ Delete
-                              </button>
                             </div>
                           </td>
                         </tr>
@@ -248,7 +326,15 @@ export default function TeacherDashboard() {
             {/* Live Student Score Cards Section */}
             {attempts.length > 0 && (
               <>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "44px", marginBottom: "16px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginTop: "44px",
+                    marginBottom: "16px"
+                  }}
+                >
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                     <h2 style={{ fontSize: "20px", fontWeight: "700" }}>Recent Student Submissions</h2>
                     <span className="badge badge-neutral">{attempts.length} Total</span>
@@ -275,15 +361,25 @@ export default function TeacherDashboard() {
                         const correct = att.correct_count ?? att.correctCount ?? 0;
 
                         return (
-                          <tr key={attId}>
+                          <tr key={attId || Math.random()}>
                             <td style={{ fontFamily: "var(--font-mono)", fontWeight: "600" }}>
                               {att.student_code || att.studentCode || "STU"}
                             </td>
                             <td>{att.student_name || att.studentName || att.student || "Student"}</td>
-                            <td style={{ fontWeight: "500", maxWidth: "260px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <td
+                              style={{
+                                fontWeight: "500",
+                                maxWidth: "260px",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap"
+                              }}
+                            >
                               {att.quiz_title || att.quizTitle || "Assessment"}
                             </td>
-                            <td style={{ color: "var(--color-text-secondary)" }}>{att.submitted_at || att.date || "Recently"}</td>
+                            <td style={{ color: "var(--color-text-secondary)" }}>
+                              {att.submitted_at || att.date || "Recently"}
+                            </td>
                             <td>
                               <span className={`badge ${score >= 70 ? "badge-success" : "badge-danger"}`}>
                                 {score}% {total ? `(${correct}/${total})` : ""}

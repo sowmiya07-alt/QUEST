@@ -1,31 +1,38 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import studentService from "../services/studentService";
 import Navbar from "../components/Navbar";
 
 export default function StudentDashboard() {
-  const { user, quizzes: ctxQuizzes, attempts: ctxAttempts } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [dashboardData, setDashboardData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const [inputCode, setInputCode] = useState("");
   const [joinLoading, setJoinLoading] = useState(false);
   const [codeError, setCodeError] = useState("");
 
-  const fetchDashboard = () => {
-    setDashboardData({
-      user,
-      active_quizzes: (ctxQuizzes || []).filter(q => q.status === "ACTIVE" || q.assigned),
-      previous_attempts: ctxAttempts || []
-    });
-  };
+  const fetchDashboard = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const data = await studentService.getDashboard();
+      setDashboardData(data);
+    } catch (err) {
+      console.error("[StudentDashboard] Error loading dashboard:", err);
+      setError(err.message || "Failed to load student dashboard.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchDashboard();
-  }, [ctxQuizzes, ctxAttempts]);
+  }, [fetchDashboard]);
 
   const handleJoinByCode = async (e) => {
     e.preventDefault();
@@ -35,20 +42,16 @@ export default function StudentDashboard() {
 
     setJoinLoading(true);
     try {
-      const res = await studentService.joinQuiz({ quiz_code: trimmed });
+      const res = await studentService.joinQuiz(trimmed);
       const quizId = res?.quiz_id || res?.id || res?.quiz?.id;
       if (quizId) {
         navigate(`/student/quiz/${quizId}`);
         return;
       }
+      throw new Error("Invalid response format received from server.");
     } catch (err) {
-      console.warn("[StudentDashboard] Backend offline for join code. Searching local quizzes.");
-      const localMatch = (ctxQuizzes || []).find(q => (q.code || q.quiz_code || "").toUpperCase() === trimmed);
-      if (localMatch) {
-        navigate(`/student/quiz/${localMatch.id || localMatch.quiz_id}`);
-        return;
-      }
-      setCodeError("Reference code not found or quiz is not active.");
+      console.error("[StudentDashboard] Join error:", err);
+      setCodeError(err.message || "Reference code not found or quiz is not active.");
     } finally {
       setJoinLoading(false);
     }
@@ -82,7 +85,9 @@ export default function StudentDashboard() {
         {error && (
           <div className="form-error" style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span>{error}</span>
-            <button className="btn btn-ghost btn-sm" onClick={fetchDashboard}>Retry</button>
+            <button className="btn btn-ghost btn-sm" onClick={fetchDashboard}>
+              Retry
+            </button>
           </div>
         )}
 
@@ -154,7 +159,15 @@ export default function StudentDashboard() {
             </div>
 
             {/* Active Quizzes List */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "40px", marginBottom: "20px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginTop: "40px",
+                marginBottom: "20px"
+              }}
+            >
               <h2 style={{ fontSize: "20px", fontWeight: "700" }}>Available Assessments</h2>
               <span className="badge badge-neutral">{activeQuizzes.length} Total</span>
             </div>
@@ -174,15 +187,32 @@ export default function StudentDashboard() {
                   return (
                     <div key={qId} className="quiz-card">
                       <div className="quiz-card-content">
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginBottom: "8px"
+                          }}
+                        >
                           <span className="badge badge-accent" style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}>
                             CODE: {qCode}
                           </span>
-                          <span style={{ fontSize: "12px", color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: "4px" }}>
+                          <span
+                            style={{
+                              fontSize: "12px",
+                              color: "var(--color-text-muted)",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px"
+                            }}
+                          >
                             ⏱ {timeLimit} mins
                           </span>
                         </div>
-                        <h3 className="quiz-card-title" title={quiz.title}>{quiz.title}</h3>
+                        <h3 className="quiz-card-title" title={quiz.title}>
+                          {quiz.title}
+                        </h3>
                         <p className="quiz-card-desc">
                           {quiz.description || "Active assessment module."}
                         </p>
