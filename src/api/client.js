@@ -1,9 +1,11 @@
 import axios from "axios";
 
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_API_URL ||
-  "/QUEST";
+  (
+    import.meta.env.VITE_API_URL ||
+    import.meta.env.VITE_API_BASE_URL ||
+    "https://nexus-production-7fa0.up.railway.app/QUEST"
+  ).replace(/\/+$/, "");
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -12,6 +14,14 @@ const apiClient = axios.create({
   headers: {
     Accept: "application/json"
   }
+});
+
+// Request interceptor: ensure leading slash doesn't reset baseURL path
+apiClient.interceptors.request.use((config) => {
+  if (config.url && config.url.startsWith("/")) {
+    config.url = config.url.substring(1);
+  }
+  return config;
 });
 
 // Response interceptor for unified, user-friendly error handling
@@ -33,8 +43,19 @@ apiClient.interceptors.response.use(
 
     let message = "";
     if (typeof data === "object" && data !== null) {
-      message = data.message || data.error || data.detail || "";
-      if (!message && data.errors) {
+      if (typeof data.message === "string" && data.message.trim()) {
+        message = data.message;
+      } else if (typeof data.error === "string" && data.error.trim()) {
+        message = data.error;
+      } else if (
+        typeof data.error === "object" &&
+        data.error !== null &&
+        typeof data.error.message === "string"
+      ) {
+        message = data.error.message;
+      } else if (typeof data.detail === "string" && data.detail.trim()) {
+        message = data.detail;
+      } else if (data.errors) {
         if (typeof data.errors === "string") {
           message = data.errors;
         } else if (Array.isArray(data.errors)) {
@@ -75,7 +96,7 @@ apiClient.interceptors.response.use(
       }
     }
 
-    const customError = new Error(message);
+    const customError = new Error(String(message));
     customError.status = status;
     customError.data = data;
     return Promise.reject(customError);
