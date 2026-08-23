@@ -24,13 +24,28 @@ export default function WrongAnswerReview() {
         ...(typeof attemptObj === "object" ? attemptObj : {})
       };
 
-      // Check if questions are already in the attempt response
-      let rawQuestions =
-        mergedAttempt.questions ||
-        mergedAttempt.review ||
-        mergedAttempt.detailed_answers ||
-        mergedAttempt.quiz?.questions ||
-        [];
+      // Parse answers_data or review if they are JSON strings
+      const parseJsonSafe = (val) => {
+        if (typeof val === "string") {
+          try {
+            return JSON.parse(val);
+          } catch {
+            return null;
+          }
+        }
+        return val;
+      };
+
+      const parsedAnswersData =
+        parseJsonSafe(mergedAttempt.answers_data) ||
+        parseJsonSafe(mergedAttempt.attempt?.answers_data) ||
+        parseJsonSafe(mergedAttempt.detailed_answers) ||
+        parseJsonSafe(mergedAttempt.review) ||
+        null;
+
+      if (parsedAnswersData) {
+        mergedAttempt.parsed_answers_data = parsedAnswersData;
+      }
 
       const quizId =
         mergedAttempt.quiz_id ||
@@ -38,8 +53,8 @@ export default function WrongAnswerReview() {
         mergedAttempt.quiz?.id ||
         mergedAttempt.attempt?.quiz_id;
 
-      // If questions are not directly in attempt record, fetch the quiz definition to get questions & correct answers
-      if ((!rawQuestions || rawQuestions.length === 0) && quizId) {
+      // Fetch supplementary quiz structure if quizId is available
+      if (quizId) {
         try {
           const quizRes = await studentService.getQuiz(quizId);
           const quizData = quizRes?.quiz || quizRes?.data || quizRes || {};
@@ -49,7 +64,7 @@ export default function WrongAnswerReview() {
             quizData.questions_data ||
             [];
           if (quizQuestions && quizQuestions.length > 0) {
-            mergedAttempt.questions = quizQuestions;
+            mergedAttempt.quiz_questions = quizQuestions;
             if (!mergedAttempt.quiz_title) {
               mergedAttempt.quiz_title = quizData.title || quizRes.title;
             }
@@ -95,7 +110,11 @@ export default function WrongAnswerReview() {
         <main className="app-content container">
           <div className="card empty-state">
             <p>{error || "Attempt review not found."}</p>
-            <button className="btn btn-primary btn-sm" onClick={() => navigate("/student/dashboard")} style={{ marginTop: "12px" }}>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => navigate("/student/dashboard")}
+              style={{ marginTop: "12px" }}
+            >
               Return to Dashboard
             </button>
           </div>
@@ -108,7 +127,7 @@ export default function WrongAnswerReview() {
   const extractQuestionsForReview = (attemptData) => {
     if (!attemptData) return [];
 
-    const parsePossibleJson = (val) => {
+    const parseJson = (val) => {
       if (typeof val === "string") {
         try {
           return JSON.parse(val);
@@ -120,54 +139,69 @@ export default function WrongAnswerReview() {
     };
 
     let rawList =
+      attemptData.parsed_answers_data ||
       attemptData.questions ||
       attemptData.review ||
       attemptData.detailed_answers ||
       attemptData.answers_review ||
-      attemptData.data?.questions ||
-      attemptData.attempt?.questions ||
-      attemptData.attempt?.review ||
+      attemptData.quiz_questions ||
       attemptData.quiz?.questions ||
-      attemptData.attempt?.quiz?.questions ||
-      parsePossibleJson(attemptData.answers_data) ||
-      parsePossibleJson(attemptData.attempt?.answers_data) ||
+      attemptData.data?.questions ||
       [];
 
-    rawList = parsePossibleJson(rawList) || [];
+    rawList = parseJson(rawList) || [];
     if (rawList && typeof rawList === "object" && !Array.isArray(rawList)) {
       rawList = rawList.questions || rawList.review || Object.values(rawList);
     }
 
+    if (!Array.isArray(rawList) || rawList.length === 0) {
+      if (Array.isArray(attemptData.quiz_questions)) {
+        rawList = attemptData.quiz_questions;
+      }
+    }
+
     if (!Array.isArray(rawList)) return [];
 
-    // Extract user answers dictionary if present
+    // Extract user answers dictionary
     let userAnswersMap =
-      parsePossibleJson(attemptData.answers) ||
-      parsePossibleJson(attemptData.attempt?.answers) ||
-      parsePossibleJson(attemptData.user_answers) ||
-      parsePossibleJson(attemptData.attempt?.user_answers) ||
-      parsePossibleJson(attemptData.answers_data) ||
-      parsePossibleJson(attemptData.attempt?.answers_data) ||
+      parseJson(attemptData.answers) ||
+      parseJson(attemptData.attempt?.answers) ||
+      parseJson(attemptData.user_answers) ||
+      parseJson(attemptData.attempt?.user_answers) ||
+      parseJson(attemptData.answers_data) ||
+      parseJson(attemptData.attempt?.answers_data) ||
+      attemptData.parsed_answers_data ||
       {};
 
     if (Array.isArray(userAnswersMap)) {
       const map = {};
-      userAnswersMap.forEach((item) => {
-        if (item && (item.question_id || item.id)) {
-          map[item.question_id || item.id] = item.selected || item.selected_option || item.answer;
+      userAnswersMap.forEach((item, i) => {
+        if (item && typeof item === "object") {
+          const key = item.question_id || item.id || item.questionId || i + 1;
+          map[key] = item.student_answer || item.user_answer || item.selected || item.selected_option || item.answer;
         }
       });
       userAnswersMap = map;
     }
 
-    return rawList.map((q, idx) => {
-      const qId = q.id ?? idx + 1;
-      const qText = q.question_text || q.question || q.text || `Question ${idx + 1}`;
+    const quizQuestionsList = Array.isArray(attemptData.quiz_questions) ? attemptData.quiz_questions : [];
 
-      let optA = q.option_a || (Array.isArray(q.options) ? q.options[0] : "");
-      let optB = q.option_b || (Array.isArray(q.options) ? q.options[1] : "");
-      let optC = q.option_c || (Array.isArray(q.options) ? q.options[2] : "");
-      let optD = q.option_d || (Array.isArray(q.options) ? q.options[3] : "");
+    return rawList.map((q, idx) => {
+      const qId = q.id ?? q.question_id ?? idx + 1;
+      const quizQ = quizQuestionsList.find((item, i) => (item.id === qId || i === idx)) || {};
+
+      const merged = {
+        ...quizQ,
+        ...q
+      };
+
+      const qText = merged.question_text || merged.question || merged.text || `Question ${idx + 1}`;
+
+      // Extract options
+      let optA = merged.option_a || (Array.isArray(merged.options) ? merged.options[0] : "");
+      let optB = merged.option_b || (Array.isArray(merged.options) ? merged.options[1] : "");
+      let optC = merged.option_c || (Array.isArray(merged.options) ? merged.options[2] : "");
+      let optD = merged.option_d || (Array.isArray(merged.options) ? merged.options[3] : "");
       if (typeof optA === "object" && optA) optA = optA.text || optA.label || "";
       if (typeof optB === "object" && optB) optB = optB.text || optB.label || "";
       if (typeof optC === "object" && optC) optC = optC.text || optC.label || "";
@@ -184,64 +218,101 @@ export default function WrongAnswerReview() {
         d: optD
       };
 
+      const allOptionsList = [
+        { key: "option_a", letter: "A", text: optA },
+        { key: "option_b", letter: "B", text: optB },
+        { key: "option_c", letter: "C", text: optC },
+        { key: "option_d", letter: "D", text: optD }
+      ].filter((o) => !!o.text);
+
       // Student Answer
       let rawStudentAnswer =
-        q.student_answer ||
-        q.user_answer ||
-        q.selected_option ||
-        q.selected ||
+        merged.student_answer ||
+        merged.user_answer ||
+        merged.selected_option ||
+        merged.selected ||
         userAnswersMap[qId] ||
         userAnswersMap[String(qId)] ||
         userAnswersMap[idx] ||
         userAnswersMap[String(idx)];
 
+      let studentKey = "";
       let studentDisplay = "Not Answered";
+
       if (rawStudentAnswer) {
-        const key = String(rawStudentAnswer).toLowerCase().trim();
-        if (optionsLookup[key]) {
-          const letter = key.replace("option_", "").toUpperCase();
-          studentDisplay = `Option ${letter}: ${optionsLookup[key]}`;
+        const rawLower = String(rawStudentAnswer).toLowerCase().trim();
+        studentKey = rawLower;
+        if (optionsLookup[rawLower]) {
+          const letter = rawLower.replace("option_", "").toUpperCase();
+          studentDisplay = `Option ${letter}: ${optionsLookup[rawLower]}`;
         } else {
-          studentDisplay = String(rawStudentAnswer);
+          // Check if raw matches an option text directly
+          const matched = allOptionsList.find((o) => o.text.toLowerCase() === rawLower);
+          if (matched) {
+            studentKey = matched.key;
+            studentDisplay = `Option ${matched.letter}: ${matched.text}`;
+          } else {
+            studentDisplay = String(rawStudentAnswer);
+          }
         }
       }
 
       // Correct Answer
       let rawCorrectAnswer =
-        q.correct_answer ||
-        q.correctAnswer ||
-        q.answer ||
-        q.correct_option ||
+        merged.correct_answer ||
+        merged.correctAnswer ||
+        merged.correct_option ||
+        merged.answer ||
+        merged.correct ||
+        merged.solution ||
         "";
 
+      let correctKey = "";
       let correctDisplay = "";
+
       if (rawCorrectAnswer) {
-        const key = String(rawCorrectAnswer).toLowerCase().trim();
-        if (optionsLookup[key]) {
-          const letter = key.replace("option_", "").toUpperCase();
-          correctDisplay = `Option ${letter}: ${optionsLookup[key]}`;
-        } else if (typeof q.correctIndex === "number" && Array.isArray(q.options)) {
-          correctDisplay = `Option ${String.fromCharCode(65 + q.correctIndex)}: ${q.options[q.correctIndex]}`;
+        const rawLower = String(rawCorrectAnswer).toLowerCase().trim();
+        correctKey = rawLower;
+        if (optionsLookup[rawLower]) {
+          const letter = rawLower.replace("option_", "").toUpperCase();
+          correctDisplay = `Option ${letter}: ${optionsLookup[rawLower]}`;
+        } else if (typeof merged.correctIndex === "number" && Array.isArray(merged.options)) {
+          const letter = String.fromCharCode(65 + merged.correctIndex);
+          correctKey = `option_${String.fromCharCode(97 + merged.correctIndex)}`;
+          correctDisplay = `Option ${letter}: ${merged.options[merged.correctIndex]}`;
         } else {
-          correctDisplay = String(rawCorrectAnswer);
+          const matched = allOptionsList.find((o) => o.text.toLowerCase() === rawLower);
+          if (matched) {
+            correctKey = matched.key;
+            correctDisplay = `Option ${matched.letter}: ${matched.text}`;
+          } else {
+            correctDisplay = String(rawCorrectAnswer);
+          }
         }
       }
 
       // Is Correct
-      let isCorrect = q.is_correct ?? q.correct;
-      if (isCorrect === undefined && rawStudentAnswer && rawCorrectAnswer) {
-        const normStudent = String(rawStudentAnswer).toLowerCase().replace("option_", "").trim();
-        const normCorrect = String(rawCorrectAnswer).toLowerCase().replace("option_", "").trim();
-        isCorrect = normStudent === normCorrect;
+      let isCorrect = merged.is_correct ?? merged.correct;
+      if (isCorrect === undefined) {
+        if (studentKey && correctKey) {
+          const normStudent = studentKey.replace("option_", "").trim();
+          const normCorrect = correctKey.replace("option_", "").trim();
+          isCorrect = normStudent === normCorrect;
+        } else {
+          isCorrect = false;
+        }
       }
 
       return {
         id: qId,
         question_text: qText,
+        options: allOptionsList,
+        student_key: studentKey,
+        correct_key: correctKey,
         is_correct: !!isCorrect,
         student_answer: studentDisplay,
         correct_answer: correctDisplay,
-        explanation: q.explanation || q.diagnostic_explanation || ""
+        explanation: merged.explanation || merged.diagnostic_explanation || ""
       };
     });
   };
@@ -255,7 +326,7 @@ export default function WrongAnswerReview() {
   return (
     <div className="app-shell">
       <Navbar />
-      <main className="app-content container">
+      <main className="app-content container" style={{ maxWidth: "900px" }}>
         <button
           className="btn btn-ghost btn-sm"
           onClick={() => navigate("/student/dashboard")}
@@ -271,7 +342,7 @@ export default function WrongAnswerReview() {
           </p>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
           {questions.length === 0 ? (
             <div className="card empty-state">
               <p>Detailed question breakdown is currently being processed by the server.</p>
@@ -283,31 +354,85 @@ export default function WrongAnswerReview() {
               const studentAnswer = q.student_answer;
               const correctAnswer = q.correct_answer;
               const explanation = q.explanation;
+              const options = q.options || [];
 
               return (
                 <div
                   key={q.id || i}
                   className="card"
                   style={{
-                    borderLeft: isCorrect ? "4px solid var(--color-success)" : "4px solid var(--color-danger)"
+                    borderLeft: isCorrect ? "4px solid var(--color-success)" : "4px solid var(--color-danger)",
+                    padding: "24px"
                   }}
                 >
                   <div
                     style={{
                       display: "flex",
                       justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "14px"
+                      alignItems: "flex-start",
+                      gap: "12px",
+                      marginBottom: "16px"
                     }}
                   >
-                    <h3 style={{ fontSize: "16px", fontWeight: "700" }}>
+                    <h3 style={{ fontSize: "16px", fontWeight: "700", lineHeight: "1.4" }}>
                       {i + 1}. {qText}
                     </h3>
-                    <span className={`badge ${isCorrect ? "badge-success" : "badge-danger"}`}>
+                    <span className={`badge ${isCorrect ? "badge-success" : "badge-danger"}`} style={{ flexShrink: 0 }}>
                       {isCorrect ? "Correct ✓" : "Incorrect ✗"}
                     </span>
                   </div>
 
+                  {/* Multiple Choice Options List with visual highlight */}
+                  {options.length > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" }}>
+                      {options.map((opt) => {
+                        const isStudentChoice =
+                          q.student_key &&
+                          (q.student_key === opt.key || q.student_key === opt.letter.toLowerCase());
+                        const isCorrectChoice =
+                          q.correct_key &&
+                          (q.correct_key === opt.key || q.correct_key === opt.letter.toLowerCase());
+
+                        let borderColor = "var(--color-border)";
+                        let bgColor = "var(--color-elevated)";
+                        let badgeTag = null;
+
+                        if (isCorrectChoice) {
+                          borderColor = "var(--color-success)";
+                          bgColor = "rgba(16, 185, 129, 0.12)";
+                          badgeTag = <span style={{ color: "var(--color-success)", fontWeight: "700", fontSize: "12px" }}>✓ Correct Answer</span>;
+                        } else if (isStudentChoice && !isCorrect) {
+                          borderColor = "var(--color-danger)";
+                          bgColor = "rgba(239, 68, 68, 0.12)";
+                          badgeTag = <span style={{ color: "var(--color-danger)", fontWeight: "700", fontSize: "12px" }}>✗ Your Choice</span>;
+                        }
+
+                        return (
+                          <div
+                            key={opt.key}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              padding: "10px 14px",
+                              borderRadius: "6px",
+                              border: `1px solid ${borderColor}`,
+                              background: bgColor,
+                              fontSize: "13.5px"
+                            }}
+                          >
+                            <div>
+                              <strong style={{ marginRight: "8px" }}>{opt.letter}.</strong>
+                              <span>{opt.text}</span>
+                            </div>
+                            {badgeTag}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Summary Comparison Row */}
                   <div
                     style={{
                       display: "grid",
@@ -364,7 +489,7 @@ export default function WrongAnswerReview() {
                         Correct Answer
                       </span>
                       <strong style={{ color: "var(--color-success)", fontSize: "14px" }}>
-                        {correctAnswer || "See explanation below"}
+                        {correctAnswer || "Refer to explanation below"}
                       </strong>
                     </div>
                   </div>
@@ -374,8 +499,9 @@ export default function WrongAnswerReview() {
                       className="review-explanation"
                       style={{
                         background: "var(--color-elevated)",
-                        padding: "12px 16px",
-                        borderRadius: "8px"
+                        padding: "14px 18px",
+                        borderRadius: "8px",
+                        borderLeft: "3px solid var(--color-accent)"
                       }}
                     >
                       <strong style={{ color: "var(--color-accent)", display: "block", marginBottom: "4px", fontSize: "13px" }}>
